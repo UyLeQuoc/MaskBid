@@ -24,6 +24,8 @@
 	"packageManager": "bun@1.3.9",
 	"workspaces": [
 		"apps/*",
+		"apps/cre-workflow/asset-log-trigger-workflow",
+		"apps/cre-workflow/contracts",
 		"packages/*"
 	]
 }

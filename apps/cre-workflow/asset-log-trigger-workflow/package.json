@@ -1,0 +1,20 @@
+{
+  "name": "cre-workflow-asset-log-trigger",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "build": "bun build ./main.ts --outdir=./dist --target=bun",
+    "lint": "biome check .",
+    "postinstall": "bunx cre-setup || true"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@chainlink/cre-sdk": "0.0.8-alpha",
+    "viem": "2.34.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.21"
+  }
+}
