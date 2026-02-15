@@ -1,0 +1,47 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "tags": [
+    "-lintignore"
+  ],
+  "ignore": [
+    "apps/web/contracts/generated/**",
+    "**/generated/**",
+    "**/*.generated.*",
+    "sui-codegen.config.ts",
+    "apps/web/components/ui/**",
+    "postcss.config.mjs"
+  ],
+  "ignoreDependencies": [
+    "@mysten/codegen"
+  ],
+  "workspaces": {
+    "apps/web": {
+      "ignore": [
+        "contracts/generated/**",
+        "**/generated/**",
+        "**/*.generated.*"
+      ],
+      "ignoreDependencies": [
+        "@base-ui/react",
+        "cmdk",
+        "date-fns",
+        "embla-carousel-react",
+        "framer-motion",
+        "input-otp",
+        "react-day-picker",
+        "react-resizable-panels",
+        "recharts",
+        "sonner",
+        "vaul"
+      ],
+      "ignoreBinaries": [
+        "sui-codegen"
+      ]
+    },
+    "apps/old-game": {
+      "ignore": [
+        "**/*"
+      ]
+    }
+  }
+}
