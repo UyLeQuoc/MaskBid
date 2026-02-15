@@ -15,6 +15,7 @@
     "@openzeppelin/contracts": "^5.4.0",
     "dotenv": "^17.2.3",
     "js-yaml": "^4.1.1",
+    "tsx": "^4.21.0",
     "viem": "^2.44.4"
   },
   "devDependencies": {}

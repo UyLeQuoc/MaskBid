@@ -1,9 +1,9 @@
 {
   "schedule": "*/30 * * * * *",
-  "url": "<your lambda function url>",
+  "url": "https://npcwptlazfyhwepiuctf.supabase.co/functions/v1/asset-handler",
   "evms": [
     {
-      "assetAddress": "0x<your deployed asset platform contract address>",
+      "assetAddress": "0x6f39650d243dff34488510f42c5f7ee9ecb94f93"
       "chainSelectorName": "ethereum-testnet-sepolia",
       "gasLimit": "1000000"
     }

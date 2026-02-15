@@ -4,9 +4,7 @@
   "main": "dist/main.js",
   "private": true,
   "scripts": {
-    "build": "bun build ./main.ts --outdir=./dist --target=bun",
-    "lint": "biome check .",
-    "postinstall": "bunx cre-setup || true"
+    "postinstall": "bunx cre-setup"
   },
   "license": "UNLICENSED",
   "dependencies": {
