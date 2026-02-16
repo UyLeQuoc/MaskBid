@@ -6,7 +6,7 @@ This guide walks through setting up the off-chain backend (Supabase) and running
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) >= 1.3.9
+- [pnpm](https://pnpm.io/) >= 10.0.0
 - [CRE CLI](https://docs.chain.link/chainlink-automation) — installed and authenticated
 - A funded Ethereum Sepolia wallet
 
@@ -31,6 +31,7 @@ This guide walks through setting up the off-chain backend (Supabase) and running
 4. Click **Run** (or press `Cmd+Enter`).
 
 This creates:
+
 - Table `asset_states` (equivalent to the old DynamoDB `AssetState` table)
 - Row-level security policy (service role only)
 - Atomic functions `increment_token_minted` and `increment_token_redeemed`
@@ -38,7 +39,6 @@ This creates:
 ---
 
 ## Step 3 — Deploy the Edge Function
-
 
 ### Via Supabase Dashboard
 
@@ -55,13 +55,14 @@ This creates:
 
 In the Supabase dashboard, go to **Settings → API**:
 
-| Value | Where to find |
-|---|---|
-| **Project URL** | `https://<project-ref>.supabase.co` |
-| **anon public key** | Under "Project API keys" |
+| Value                | Where to find                          |
+| -------------------- | -------------------------------------- |
+| **Project URL**      | `https://<project-ref>.supabase.co`    |
+| **anon public key**  | Under "Project API keys"               |
 | **service_role key** | Under "Project API keys" (keep secret) |
 
 The Edge Function URL will be:
+
 ```
 https://<project-ref>.supabase.co/functions/v1/asset-handler
 ```
@@ -117,9 +118,17 @@ CRE_TARGET=local-simulation
 
 ## Step 7 — Install dependencies
 
+From the project root:
+
+```bash
+pnpm install
+```
+
+Then run the setup command for the workflow:
+
 ```bash
 cd apps/cre-workflow/asset-log-trigger-workflow
-bun install
+pnpm run setup
 ```
 
 ---
@@ -165,6 +174,7 @@ Simulates the reverse flow: off-chain service sends `{assetId, uid}` → CRE sig
 ```
 
 The file `http_trigger_payload.json` already contains a sample payload:
+
 ```json
 { "assetId": 1, "uid": "bca71bc9-d08e-48ef-8ad1-acefe95505a9" }
 ```
@@ -194,10 +204,10 @@ SELECT * FROM asset_states ORDER BY created_at DESC;
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---|---|
-| Edge Function returns 500 | Check **Edge Functions → Logs** in the Supabase dashboard |
-| `increment_token_minted` function not found | Re-run the migration SQL in Step 2 |
-| CRE simulation fails with "region is null" | This error is from the old Lambda code — ignore, the workflow now points to Supabase |
-| JWT error on Edge Function call | Make sure JWT verification is disabled on the `asset-handler` function |
-| `config.json not found` | Run `cp config.json.example config.json` in the workflow directory |
+| Problem                                     | Fix                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Edge Function returns 500                   | Check **Edge Functions → Logs** in the Supabase dashboard                            |
+| `increment_token_minted` function not found | Re-run the migration SQL in Step 2                                                   |
+| CRE simulation fails with "region is null"  | This error is from the old Lambda code — ignore, the workflow now points to Supabase |
+| JWT error on Edge Function call             | Make sure JWT verification is disabled on the `asset-handler` function               |
+| `config.json not found`                     | Run `cp config.json.example config.json` in the workflow directory                   |

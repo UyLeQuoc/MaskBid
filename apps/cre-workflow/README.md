@@ -92,7 +92,7 @@ Before proceeding, ensure the following are set up:
 - CRE account authentication: Follow [doc](https://docs.chain.link/cre/account/cli-login) to log in CRE account with CLI.
 - [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - [Node.js](https://nodejs.org/en) (v18+ recommended) for script execution.
-- [Bun JS package manager](https://bun.com/)
+- [pnpm package manager](https://pnpm.io/)
 - Ethereum Sepolia testnet access (e.g., via Alchemy or Infura RPC endpoint).
 - Sepolia test tokens (ETH and any required ERC-20/ERC-1155 tokens) for gas and interactions.
 - [AWS](https://aws.amazon.com/console/) account (Free Tier eligible) with IAM roles for DynamoDB and Lambda. <b>Steps are below</b>.
@@ -209,26 +209,24 @@ Follow these steps to deploy and interact with the project:
 
 6. Install node dependencies
     
-   From the `asset-log-trigger-workflow` directory, install node deps for the workflow with command below:
+   From the root directory, install dependencies with pnpm:
     ```shell
-
-    bun install
+    pnpm install
     ```
 
-    You will see the following if the process succeeds.
+    Then run the setup command for the workflow:
+    ```shell
+    cd asset-log-trigger-workflow
+    pnpm run setup
+    ```
+
+    You will see the following if the process succeeds:
 
     ```
-    $ bunx cre-setup
+    $ cre-setup
     [cre-sdk-javy-plugin] Detected platform: darwin, arch: arm64
     [cre-sdk-javy-plugin] Using cached binary: /Users/qingyangkong/.cache/javy/v5.0.4/darwin-arm64/javy
     ✅ CRE TS SDK is ready to use.
-
-    + @types/bun@1.2.21
-    + @chainlink/cre-sdk@0.0.8-alpha
-    + viem@2.34.0
-    + zod@3.25.76
-
-    30 packages installed [3.06s]
     ```
 
 7. Create a `.env` file from the example
