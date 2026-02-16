@@ -27,5 +27,8 @@
 		"apps/cre-workflow/asset-log-trigger-workflow",
 		"apps/cre-workflow/contracts",
 		"packages/*"
-	]
+	],
+	"dependencies": {
+		"@chainlink/cre-sdk-javy-plugin": "^1.0.9"
+	}
 }
