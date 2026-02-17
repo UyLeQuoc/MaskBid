@@ -1,0 +1,26 @@
+# ==========================================================================
+# ZK AUCTION WORKFLOW - ConfidentialHTTP Capability
+# ==========================================================================
+# This workflow demonstrates the "Authorized Enclave" pattern for RWA auctions.
+# Bids remain encrypted until the Chainlink Enclave triggers the solver.
+#
+# Security Model:
+# - SOLVER_AUTH_TOKEN lives only in VaultDON and the Secure Enclave
+# - Token is never visible in code (only template placeholder {{.solver_auth_token}})
+# - Response is encrypted until Chainlink consensus
+
+local-simulation:
+  user-workflow:
+    workflow-name: "zk-auction-workflow"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "../secrets.yaml"
+
+staging:
+  user-workflow:
+    workflow-name: "zk-auction-workflow"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "../secrets.yaml"
