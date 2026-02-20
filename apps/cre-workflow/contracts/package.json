@@ -1,22 +1,31 @@
 {
-  "name": "cre-workflow-contracts",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "build": "echo 'Contracts use pre-compiled output/ or run: solc --abi --bin --optimize --base-path . --include-path node_modules/ -o output/ TokenizedAssetPlatform.sol'",
-    "lint": "biome check .",
-    "deploy": "bun run 1_deploy.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "description": "Tokenized Asset Platform smart contracts",
-  "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0",
-    "dotenv": "^17.2.3",
-    "js-yaml": "^4.1.1",
-    "tsx": "^4.21.0",
-    "viem": "^2.44.4"
-  },
-  "devDependencies": {}
+	"name": "cre-workflow-contracts",
+	"version": "1.0.0",
+	"main": "index.js",
+	"scripts": {
+		"build": "solc --abi --bin --optimize --base-path . --allow-paths $(cd ../../../node_modules/.bun && pwd) --include-path $(cd ../../../node_modules/.bun/@openzeppelin+contracts@5.4.0/node_modules && pwd) -o output/ --overwrite src/TokenizedAssetPlatform.sol && cd output && find . -type f ! -name 'TokenizedAssetPlatform.*' -delete && cd .. && bun run scripts/gen-abi-ts.ts",
+		"format": "biome check .",
+		"format:fix": "biome check . --write",
+		"deploy": "bun run scripts/1_deploy.ts",
+		"register": "bun run scripts/2_registerNewAsset.ts",
+		"verify": "bun run scripts/3_verifyAsset.ts",
+		"readUid": "bun run scripts/4_readUid.ts",
+		"mint": "bun run scripts/5_mint.ts",
+		"redeem": "bun run scripts/6_redeem.ts"
+	},
+	"author": "",
+	"license": "ISC",
+	"description": "Tokenized Asset Platform smart contracts",
+	"dependencies": {
+		"@openzeppelin/contracts": "^5.4.0",
+		"@types/js-yaml": "^4.0.9",
+		"dotenv": "^17.2.3",
+		"js-yaml": "^4.1.1",
+		"tsx": "^4.21.0",
+		"viem": "^2.44.4"
+	},
+	"devDependencies": {
+		"@types/node": "^25.2.3",
+		"bun-types": "^1.3.9"
+	}
 }
