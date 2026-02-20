@@ -59,11 +59,11 @@ const BIDS: Bid[] = [
 ]
 
 const STATUS_STYLES: Record<BidStatus, string> = {
-    Active: 'text-blue-300 bg-blue-500/20',
-    'Pending Settlement': 'text-amber-300 bg-amber-500/20',
-    Won: 'text-green-300 bg-green-500/20',
-    Lost: 'text-red-300 bg-red-500/20',
-    Claimed: 'text-white/40 bg-white/10',
+    Active: 'text-blue-600 bg-blue-50',
+    'Pending Settlement': 'text-amber-600 bg-amber-50',
+    Won: 'text-green-600 bg-green-100',
+    Lost: 'text-red-600 bg-red-50',
+    Claimed: 'text-slate-400 bg-slate-100',
 }
 
 function PayModal({ bid, onClose }: { bid: typeof BIDS[number]; onClose: () => void }) {
@@ -81,22 +81,22 @@ function PayModal({ bid, onClose }: { bid: typeof BIDS[number]; onClose: () => v
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={done ? onClose : undefined} />
-            <div className="relative bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-                <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/10">
-                    <h2 className="text-white font-semibold">{done ? 'Payment Complete' : 'Pay & Claim NFT'}</h2>
-                    <button type="button" onClick={onClose} className="text-white/30 hover:text-white/60 text-xl leading-none transition-colors">✕</button>
+            <div className="relative bg-white border border-slate-200 rounded-3xl w-full max-w-md shadow-2xl">
+                <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-200">
+                    <h2 className="text-slate-900 font-semibold">{done ? 'Payment Complete' : 'Pay & Claim NFT'}</h2>
+                    <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none transition-colors">✕</button>
                 </div>
 
                 <div className="px-6 py-6">
                     {done ? (
                         <div className="text-center space-y-4">
                             <div className="text-5xl">✅</div>
-                            <h3 className="text-white font-bold text-xl">NFT Claimed!</h3>
-                            <p className="text-white/50 text-sm">NFT + deposit transferred to your wallet. Check &apos;My Assets&apos; for your new asset.</p>
+                            <h3 className="text-slate-900 font-bold text-xl">NFT Claimed!</h3>
+                            <p className="text-slate-500 text-sm">NFT + deposit transferred to your wallet. Check &apos;My Assets&apos; for your new asset.</p>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="w-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold py-3 rounded-xl transition-colors"
+                                className="w-full bg-slate-100 hover:bg-slate-100 border border-slate-200 text-slate-900 font-semibold py-3 rounded-2xl transition-colors"
                             >
                                 Close
                             </button>
@@ -105,26 +105,26 @@ function PayModal({ bid, onClose }: { bid: typeof BIDS[number]; onClose: () => v
                         <div className="space-y-4">
                             <div className="text-center mb-2">
                                 <div className="text-3xl mb-1">🏆</div>
-                                <p className="text-green-300 font-semibold">You Won!</p>
-                                <p className="text-white/50 text-sm mt-1">To receive your NFT and deposit back, pay your bid amount.</p>
+                                <p className="text-green-600 font-semibold">You Won!</p>
+                                <p className="text-slate-500 text-sm mt-1">To receive your NFT and deposit back, pay your bid amount.</p>
                             </div>
 
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 text-sm">
+                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 text-sm">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-white/50">Bid amount (goes to seller)</span>
-                                    <span className="text-white font-semibold flex items-center gap-1.5">
-                                        🔒 <span className="line-through text-white/40 mr-1">encrypted</span> {bid.myBid} USDC
+                                    <span className="text-slate-500">Bid amount (goes to seller)</span>
+                                    <span className="text-slate-900 font-semibold flex items-center gap-1.5">
+                                        🔒 <span className="line-through text-slate-400 mr-1">encrypted</span> {bid.myBid} USDC
                                     </span>
                                 </div>
-                                <div className="border-t border-white/10 pt-3">
-                                    <p className="text-white/40 text-xs mb-2">You will receive:</p>
+                                <div className="border-t border-slate-200 pt-3">
+                                    <p className="text-slate-400 text-xs mb-2">You will receive:</p>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-white/60">Deposit refunded</span>
-                                        <span className="text-green-300 font-medium">+ {bid.deposit} USDC</span>
+                                        <span className="text-slate-600">Deposit refunded</span>
+                                        <span className="text-green-600 font-medium">+ {bid.deposit} USDC</span>
                                     </div>
                                     <div className="flex items-center justify-between mt-1">
-                                        <span className="text-white/60">Asset NFT</span>
-                                        <span className="text-green-300 font-medium">+ {bid.name}</span>
+                                        <span className="text-slate-600">Asset NFT</span>
+                                        <span className="text-green-600 font-medium">+ {bid.name}</span>
                                     </div>
                                 </div>
                             </div>
@@ -133,7 +133,7 @@ function PayModal({ bid, onClose }: { bid: typeof BIDS[number]; onClose: () => v
                                 type="button"
                                 onClick={handlePay}
                                 disabled={loading}
-                                className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                                className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2"
                             >
                                 {loading ? (
                                     <>
@@ -162,11 +162,11 @@ export default function MyBidsPage() {
 
     function getAction(bid: typeof BIDS[number]) {
         switch (bid.status) {
-            case 'Active': return { label: 'View', style: 'text-blue-400 hover:text-blue-300' }
-            case 'Pending Settlement': return { label: 'Waiting...', style: 'text-amber-400 cursor-default' }
-            case 'Won': return { label: 'Pay & Claim', style: 'text-green-400 hover:text-green-300 font-semibold' }
-            case 'Lost': return { label: 'Claim Deposit', style: 'text-orange-400 hover:text-orange-300 font-semibold' }
-            case 'Claimed': return { label: '—', style: 'text-white/20' }
+            case 'Active': return { label: 'View', style: 'text-blue-600 hover:text-blue-700' }
+            case 'Pending Settlement': return { label: 'Waiting...', style: 'text-amber-600 cursor-default' }
+            case 'Won': return { label: 'Pay & Claim', style: 'text-green-600 hover:text-green-700 font-semibold' }
+            case 'Lost': return { label: 'Claim Deposit', style: 'text-orange-500 hover:text-orange-600 font-semibold' }
+            case 'Claimed': return { label: '—', style: 'text-slate-300' }
         }
     }
 
@@ -177,17 +177,17 @@ export default function MyBidsPage() {
     }
 
     return (
-        <div className="bg-slate-900 min-h-screen text-white">
+        <div className="bg-slate-50 min-h-screen text-slate-900">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                 <div className="mb-6">
                     <h1 className="text-3xl font-bold mb-1">My Bids</h1>
-                    <p className="text-white/50">Track your sealed bids and claim winnings or deposits after settlement.</p>
+                    <p className="text-slate-500">Track your sealed bids and claim winnings or deposits after settlement.</p>
                 </div>
 
                 {/* Info banner */}
-                <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 mb-8">
-                    <span className="text-blue-400 mt-0.5">🔒</span>
-                    <p className="text-blue-200 text-sm">
+                <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-8">
+                    <span className="text-blue-600 mt-0.5">🔒</span>
+                    <p className="text-blue-700 text-sm">
                         Your bid amounts are <span className="font-semibold">encrypted</span> and never visible on-chain. Only your deposit is locked. Chainlink CRE will reveal the winner after each auction ends.
                     </p>
                 </div>
@@ -200,18 +200,18 @@ export default function MyBidsPage() {
                         { label: 'Auctions Won', value: `${BIDS.filter(b => b.status === 'Won').length}` },
                         { label: 'Deposits to Claim', value: `${BIDS.filter(b => b.status === 'Lost').length}` },
                     ].map(stat => (
-                        <div key={stat.label} className="bg-white/5 border border-white/10 rounded-xl p-4">
-                            <p className="text-white/40 text-xs mb-1">{stat.label}</p>
-                            <p className="text-white font-bold">{stat.value}</p>
+                        <div key={stat.label} className="bg-white border border-slate-200 rounded-2xl p-4">
+                            <p className="text-slate-400 text-xs mb-1">{stat.label}</p>
+                            <p className="text-slate-900 font-bold">{stat.value}</p>
                         </div>
                     ))}
                 </div>
 
-                <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden mb-8">
+                <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden mb-8">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="text-white/40 text-xs border-b border-white/10">
+                                <tr className="text-slate-400 text-xs border-b border-slate-200">
                                     <th className="text-left px-6 py-4">Auction</th>
                                     <th className="text-left px-4 py-4">Type</th>
                                     <th className="text-right px-4 py-4">Reserve</th>
@@ -222,32 +222,32 @@ export default function MyBidsPage() {
                                     <th className="text-right px-6 py-4">Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-slate-100">
                                 {BIDS.map(bid => {
                                     const action = getAction(bid)
                                     return (
-                                        <tr key={bid.id} className="hover:bg-white/5 transition-colors">
+                                        <tr key={bid.id} className="hover:bg-slate-50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <p className="text-white font-medium">{bid.name}</p>
+                                                <p className="text-slate-900 font-medium">{bid.name}</p>
                                             </td>
-                                            <td className="px-4 py-4 text-white/50">{bid.type}</td>
-                                            <td className="px-4 py-4 text-right text-white/70">{bid.reservePrice} USDC</td>
+                                            <td className="px-4 py-4 text-slate-500">{bid.type}</td>
+                                            <td className="px-4 py-4 text-right text-slate-700">{bid.reservePrice} USDC</td>
                                             <td className="px-4 py-4 text-right">
-                                                <span className={bid.status === 'Claimed' ? 'text-white/30 line-through' : 'text-yellow-300'}>
+                                                <span className={bid.status === 'Claimed' ? 'text-slate-300 line-through' : 'text-amber-600'}>
                                                     {bid.deposit} USDC
                                                 </span>
                                             </td>
                                             <td className="px-4 py-4 text-right">
                                                 {bid.myBid ? (
-                                                    <span className="text-white font-medium">{bid.myBid} USDC</span>
+                                                    <span className="text-slate-900 font-medium">{bid.myBid} USDC</span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 text-white/30 text-xs bg-white/5 px-2 py-0.5 rounded-full">
+                                                    <span className="inline-flex items-center gap-1 text-slate-400 text-xs bg-slate-100 px-2 py-0.5 rounded-full">
                                                         🔒 Sealed
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="px-4 py-4 text-center">
-                                                <span className={bid.endTime === 'Ended' ? 'text-white/30' : 'text-orange-300'}>
+                                                <span className={bid.endTime === 'Ended' ? 'text-slate-400' : 'text-orange-500'}>
                                                     {bid.endTime}
                                                 </span>
                                             </td>
@@ -285,7 +285,7 @@ export default function MyBidsPage() {
                 </div>
 
                 <div className="text-center">
-                    <Link href="/auctions" className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-xl transition-colors">
+                    <Link href="/auctions" className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-2xl transition-colors">
                         Browse More Auctions
                     </Link>
                 </div>

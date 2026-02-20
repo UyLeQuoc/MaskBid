@@ -54,19 +54,19 @@ export function KYCGate({ children }: { children: React.ReactNode }) {
     // Not connected
     if (!connected) {
         return (
-            <div className="min-h-screen bg-linear-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
                 <div className="text-center max-w-sm">
-                    <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg aria-hidden="true" className="w-10 h-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg aria-hidden="true" className="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
                         </svg>
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">Connect your wallet to continue</h2>
-                    <p className="text-blue-200 text-sm mb-6">This page requires a connected wallet with KYC verification.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Connect your wallet to continue</h2>
+                    <p className="text-blue-600 text-sm mb-6">This page requires a connected wallet with KYC verification.</p>
                     <button
                         type="button"
                         onClick={() => sdk?.connect()}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+                        className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-3 rounded-2xl transition-colors"
                     >
                         Connect Wallet
                     </button>
@@ -78,13 +78,13 @@ export function KYCGate({ children }: { children: React.ReactNode }) {
     // Checking KYC
     if (kycVerified === null) {
         return (
-            <div className="min-h-screen bg-linear-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center">
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                 <div className="text-center">
-                    <svg aria-hidden="true" className="animate-spin w-10 h-10 text-blue-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" className="animate-spin w-10 h-10 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    <p className="text-blue-200 text-sm">Checking verification status...</p>
+                    <p className="text-blue-600 text-sm">Checking verification status...</p>
                 </div>
             </div>
         )

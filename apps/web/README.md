@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MaskBid — Web Frontend
 
-## Getting Started
+## What is MaskBid?
 
-First, run the development server:
+Sealed-bid NFT auction platform for physical assets. Bids are encrypted with
+Chainlink Confidential HTTP — no one (not even the seller) can read them until
+Chainlink CRE reveals the winner.
+
+## Flows
+
+- **Bidder:** deposit → sealed bid → win/lose → claim NFT or claim deposit back
+- **Seller:** register asset → set reserve price + required deposit → receive payment
+- **Verifier:** review submitted assets, approve/reject for minting
+
+## Pages
+
+| Route | Description |
+|---|---|
+| `/` | Landing page |
+| `/auctions` | Browse live auctions, place sealed bids |
+| `/dashboard` | KYC status, active bids, registered assets |
+| `/my-bids` | Bid history, Pay & Claim (winners), Claim Deposit (losers) |
+| `/my-assets` | Asset portfolio + registration form |
+| `/verifier` | Verifier review queue |
+
+## Tech Stack
+
+Next.js 15 (App Router) · Tailwind CSS v4 · MetaMask SDK
+World ID (KYC) · Chainlink CRE + Confidential HTTP · nuqs (URL state)
+
+## Local Dev
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bun dev          # → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Network
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tenderly Virtual Sepolia (testnet)
+RPC: `https://virtual.sepolia.eu.rpc.tenderly.co/8c5c110e-0641-4255-ae82-73a983077b86`

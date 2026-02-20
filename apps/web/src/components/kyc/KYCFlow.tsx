@@ -146,47 +146,47 @@ export function KYCFlow() {
     }
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
             <div className="w-full max-w-lg">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-white mb-2">MaskBid KYC</h1>
-                    <p className="text-blue-300 text-sm">Identity verification powered by World ID</p>
+                    <h1 className="text-3xl font-bold text-slate-900 mb-2">MaskBid KYC</h1>
+                    <p className="text-blue-600 text-sm">Identity verification powered by World ID</p>
                 </div>
 
                 <StepIndicator currentState={flowState} />
 
                 {connected && account && (
-                    <div className="flex items-center justify-between bg-white/10 border border-white/20 rounded-xl px-4 py-2 mb-4 text-white text-sm">
+                    <div className="flex items-center justify-between bg-slate-100 border border-slate-200 rounded-2xl px-4 py-2 mb-4 text-slate-900 text-sm">
                         <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 bg-green-400 rounded-full" />
+                            <span className="w-2 h-2 bg-green-600 rounded-full" />
                             <span className="font-mono">{truncateAddress(account)}</span>
                         </div>
                         <button
                             type="button"
                             onClick={handleDisconnect}
-                            className="text-blue-300 hover:text-white text-xs transition-colors"
+                            className="text-blue-600 hover:text-blue-700 text-xs transition-colors"
                         >
                             Disconnect
                         </button>
                     </div>
                 )}
 
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 shadow-2xl">
+                <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
 
                     {(flowState === 'idle' || flowState === 'connecting') && (
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <svg aria-hidden="true" className="w-10 h-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg aria-hidden="true" className="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18-3a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
                                 </svg>
                             </div>
-                            <h2 className="text-xl font-semibold text-white mb-2">Connect Your Wallet</h2>
-                            <p className="text-blue-200 text-sm mb-8">Connect MetaMask to begin the KYC process. Your wallet address will be bound to your World ID proof.</p>
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Connect Your Wallet</h2>
+                            <p className="text-blue-600 text-sm mb-8">Connect MetaMask to begin the KYC process. Your wallet address will be bound to your World ID proof.</p>
                             <button
                                 type="button"
                                 onClick={handleConnect}
                                 disabled={flowState === 'connecting'}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2"
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2"
                             >
                                 {flowState === 'connecting' ? (
                                     <>
@@ -202,43 +202,43 @@ export function KYCFlow() {
 
                     {flowState === 'checking_kyc' && (
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Spinner className="w-10 h-10 text-blue-400" />
+                            <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Spinner className="w-10 h-10 text-blue-600" />
                             </div>
-                            <h2 className="text-xl font-semibold text-white mb-2">Checking KYC Status</h2>
-                            <p className="text-blue-200 text-sm">Reading on-chain verification status for your address...</p>
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Checking KYC Status</h2>
+                            <p className="text-blue-600 text-sm">Reading on-chain verification status for your address...</p>
                         </div>
                     )}
 
                     {flowState === 'already_verified' && (
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <svg aria-hidden="true" className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg aria-hidden="true" className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                                 </svg>
                             </div>
-                            <div className="inline-flex items-center gap-1.5 bg-green-500/20 border border-green-500/30 text-green-300 text-xs font-medium px-3 py-1 rounded-full mb-4">
-                                <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                            <div className="inline-flex items-center gap-1.5 bg-green-100 border border-green-200 text-green-600 text-xs font-medium px-3 py-1 rounded-full mb-4">
+                                <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
                                 KYC Verified
                             </div>
-                            <h2 className="text-xl font-semibold text-white mb-2">Already Verified</h2>
-                            <p className="text-blue-200 text-sm">
-                                Your address <span className="font-mono text-white">{account && truncateAddress(account)}</span> is already KYC verified on-chain.
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Already Verified</h2>
+                            <p className="text-blue-600 text-sm">
+                                Your address <span className="font-mono text-slate-900">{account && truncateAddress(account)}</span> is already KYC verified on-chain.
                             </p>
                         </div>
                     )}
 
                     {(flowState === 'needs_verification' || flowState === 'verifying') && (
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <svg aria-hidden="true" className="w-10 h-10 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="w-20 h-20 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg aria-hidden="true" className="w-10 h-10 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                                 </svg>
                             </div>
-                            <h2 className="text-xl font-semibold text-white mb-2">Verify Your Identity</h2>
-                            <p className="text-blue-200 text-sm mb-8">
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Verify Your Identity</h2>
+                            <p className="text-blue-600 text-sm mb-8">
                                 Use World ID to prove your unique humanity. Your wallet{' '}
-                                <span className="font-mono text-white">{account && truncateAddress(account)}</span> will be bound to the proof.
+                                <span className="font-mono text-slate-900">{account && truncateAddress(account)}</span> will be bound to the proof.
                             </p>
                             <IDKitWidget
                                 app_id={APP_ID}
@@ -251,7 +251,7 @@ export function KYCFlow() {
                                     <button
                                         type="button"
                                         onClick={() => { setFlowState('verifying'); open() }}
-                                        className="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-2"
+                                        className="w-full bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2"
                                     >
                                         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
@@ -265,31 +265,31 @@ export function KYCFlow() {
 
                     {flowState === 'submitting' && (
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Spinner className="w-10 h-10 text-blue-400" />
+                            <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Spinner className="w-10 h-10 text-blue-600" />
                             </div>
-                            <h2 className="text-xl font-semibold text-white mb-2">Updating KYC On-Chain</h2>
-                            <p className="text-blue-200 text-sm">Verifying your World ID proof and waiting for on-chain confirmation. This may take up to a minute...</p>
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Updating KYC On-Chain</h2>
+                            <p className="text-blue-600 text-sm">Verifying your World ID proof and waiting for on-chain confirmation. This may take up to a minute...</p>
                         </div>
                     )}
 
                     {flowState === 'done' && (
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-                                <svg aria-hidden="true" className="w-10 h-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+                                <svg aria-hidden="true" className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </div>
-                            <h2 className="text-xl font-semibold text-white mb-2">KYC Verification Complete!</h2>
-                            <p className="text-blue-200 text-sm mb-6">
-                                Your wallet <span className="font-mono text-white">{account && truncateAddress(account)}</span> is now KYC verified on-chain.
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">KYC Verification Complete!</h2>
+                            <p className="text-blue-600 text-sm mb-6">
+                                Your wallet <span className="font-mono text-slate-900">{account && truncateAddress(account)}</span> is now KYC verified on-chain.
                             </p>
                             {txHash && (
                                 <a
                                     href={`${EXPLORER_URL}/${txHash}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-sm underline transition-colors"
+                                    className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 text-sm underline transition-colors"
                                 >
                                     View transaction on Sepolia
                                     <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -302,17 +302,17 @@ export function KYCFlow() {
 
                     {flowState === 'error' && (
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <svg aria-hidden="true" className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg aria-hidden="true" className="w-10 h-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                                 </svg>
                             </div>
-                            <h2 className="text-xl font-semibold text-white mb-2">Verification Failed</h2>
-                            <p className="text-red-300 text-sm mb-6">{errorMsg || 'An unexpected error occurred.'}</p>
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Verification Failed</h2>
+                            <p className="text-red-600 text-sm mb-6">{errorMsg || 'An unexpected error occurred.'}</p>
                             <button
                                 type="button"
                                 onClick={handleRetry}
-                                className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-6 rounded-xl transition-all"
+                                className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-6 rounded-2xl transition-all"
                             >
                                 Try Again
                             </button>
@@ -320,7 +320,7 @@ export function KYCFlow() {
                     )}
                 </div>
 
-                <p className="text-center text-blue-400/50 text-xs mt-6">
+                <p className="text-center text-blue-600/50 text-xs mt-6">
                     Secured by World ID · Sepolia Testnet
                 </p>
             </div>

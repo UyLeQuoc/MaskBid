@@ -95,33 +95,33 @@ type Auction = typeof AUCTIONS[number]
 
 function AuctionCard({ auction, onSelect, onBid }: { auction: Auction; onSelect: () => void; onBid: () => void }) {
     return (
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-colors">
-            <div className="h-44 bg-white/5 flex items-center justify-center text-7xl">
+        <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-slate-300 transition-colors">
+            <div className="h-44 bg-slate-100 flex items-center justify-center text-7xl">
                 {auction.image}
             </div>
             <div className="p-5">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-full">{auction.type}</span>
-                    <span className="text-xs font-medium text-green-300 bg-green-500/20 px-2 py-0.5 rounded-full">{auction.status}</span>
+                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{auction.type}</span>
+                    <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{auction.status}</span>
                 </div>
-                <h3 className="text-white font-semibold mb-3">{auction.name}</h3>
+                <h3 className="text-slate-900 font-semibold mb-3">{auction.name}</h3>
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mb-3">
                     <div>
-                        <p className="text-white/40 text-xs">Reserve Price</p>
-                        <p className="text-white font-bold">{auction.reservePrice} USDC</p>
+                        <p className="text-slate-400 text-xs">Reserve Price</p>
+                        <p className="text-slate-900 font-bold">{auction.reservePrice} USDC</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-white/40 text-xs">Ends in</p>
-                        <p className="text-orange-300 font-medium">{auction.endTime}</p>
+                        <p className="text-slate-400 text-xs">Ends in</p>
+                        <p className="text-orange-500 font-medium">{auction.endTime}</p>
                     </div>
                     <div>
-                        <p className="text-white/40 text-xs">Deposit</p>
-                        <p className="text-yellow-300 font-medium">{auction.requiredDeposit} USDC</p>
+                        <p className="text-slate-400 text-xs">Deposit</p>
+                        <p className="text-amber-600 font-medium">{auction.requiredDeposit} USDC</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-white/40 text-xs">Sealed Bids</p>
-                        <p className="text-white/60 text-sm flex items-center justify-end gap-1">
+                        <p className="text-slate-400 text-xs">Sealed Bids</p>
+                        <p className="text-slate-600 text-sm flex items-center justify-end gap-1">
                             <span>🔒</span> {auction.bidCount}
                         </p>
                     </div>
@@ -131,14 +131,14 @@ function AuctionCard({ auction, onSelect, onBid }: { auction: Auction; onSelect:
                     <button
                         type="button"
                         onClick={onSelect}
-                        className="flex-1 text-center bg-white/10 hover:bg-white/15 border border-white/10 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        className="flex-1 text-center bg-slate-100 hover:bg-slate-100 border border-slate-200 text-slate-900 text-sm font-medium py-2 rounded-2xl transition-colors"
                     >
                         View Details
                     </button>
                     <button
                         type="button"
                         onClick={onBid}
-                        className="flex-1 text-center bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        className="flex-1 text-center bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2 rounded-2xl transition-colors"
                     >
                         Place Bid
                     </button>
@@ -150,17 +150,17 @@ function AuctionCard({ auction, onSelect, onBid }: { auction: Auction; onSelect:
 
 function AuctionList({ onSelect, onBid }: { onSelect: (id: string) => void; onBid: (auction: Auction) => void }) {
     return (
-        <div className="bg-slate-900 min-h-screen text-white">
+        <div className="bg-slate-50 min-h-screen text-slate-900">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                 <div className="mb-6">
                     <h1 className="text-3xl font-bold mb-2">Live Auctions</h1>
-                    <p className="text-white/50">All bids are sealed and encrypted — only the reserve price is public.</p>
+                    <p className="text-slate-500">All bids are sealed and encrypted — only the reserve price is public.</p>
                 </div>
 
                 {/* Sealed bid notice */}
-                <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 mb-8">
-                    <span className="text-blue-400 mt-0.5">🔒</span>
-                    <p className="text-blue-200 text-sm">
+                <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-8">
+                    <span className="text-blue-600 mt-0.5">🔒</span>
+                    <p className="text-blue-700 text-sm">
                         <span className="font-semibold">Dark Auction:</span> Bid amounts are encrypted with Chainlink Confidential HTTP. No one — not even the seller — can see bids until the auction ends. Winner is selected by Chainlink CRE.
                     </p>
                 </div>
@@ -171,10 +171,10 @@ function AuctionList({ onSelect, onBid }: { onSelect: (id: string) => void; onBi
                         <button
                             key={filter}
                             type="button"
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            className={`px-4 py-2 rounded-2xl text-sm font-medium transition-colors ${
                                 filter === 'All'
                                     ? 'bg-blue-600 text-white'
-                                    : 'bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10'
+                                    : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                             }`}
                         >
                             {filter}
@@ -199,12 +199,12 @@ function AuctionList({ onSelect, onBid }: { onSelect: (id: string) => void; onBi
 
 function AuctionDetail({ auction, onBack, onBid }: { auction: Auction; onBack: () => void; onBid: () => void }) {
     return (
-        <div className="bg-slate-900 min-h-screen text-white">
+        <div className="bg-slate-50 min-h-screen text-slate-900">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                 <button
                     type="button"
                     onClick={onBack}
-                    className="text-blue-400 hover:text-blue-300 text-sm mb-6 inline-block transition-colors"
+                    className="text-blue-600 hover:text-blue-700 text-sm mb-6 inline-block transition-colors"
                 >
                     ← Back to Auctions
                 </button>
@@ -212,20 +212,20 @@ function AuctionDetail({ auction, onBack, onBid }: { auction: Auction; onBack: (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                     {/* Left */}
                     <div>
-                        <div className="h-72 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-8xl mb-6">
+                        <div className="h-72 bg-white border border-slate-200 rounded-3xl flex items-center justify-center text-8xl mb-6">
                             {auction.image}
                         </div>
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-                            <h2 className="text-white font-semibold mb-3">Description</h2>
-                            <p className="text-white/60 text-sm leading-relaxed">{auction.description}</p>
-                            <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-sm">
+                        <div className="bg-white border border-slate-200 rounded-3xl p-6">
+                            <h2 className="text-slate-900 font-semibold mb-3">Description</h2>
+                            <p className="text-slate-600 text-sm leading-relaxed">{auction.description}</p>
+                            <div className="mt-4 pt-4 border-t border-slate-200 space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-white/40">Seller</span>
-                                    <span className="font-mono text-white/70">{auction.seller}</span>
+                                    <span className="text-slate-400">Seller</span>
+                                    <span className="font-mono text-slate-700">{auction.seller}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-white/40">Auction Started</span>
-                                    <span className="text-white/70">{auction.startTime}</span>
+                                    <span className="text-slate-400">Auction Started</span>
+                                    <span className="text-slate-700">{auction.startTime}</span>
                                 </div>
                             </div>
                         </div>
@@ -234,76 +234,76 @@ function AuctionDetail({ auction, onBack, onBid }: { auction: Auction; onBack: (
                     {/* Right */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-3">
-                            <span className="text-xs font-medium text-blue-300 bg-blue-500/20 px-2.5 py-1 rounded-full">{auction.type}</span>
-                            <span className="text-xs font-medium text-green-300 bg-green-500/20 px-2.5 py-1 rounded-full">{auction.status}</span>
+                            <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">{auction.type}</span>
+                            <span className="text-xs font-medium text-green-600 bg-green-100 px-2.5 py-1 rounded-full">{auction.status}</span>
                         </div>
                         <h1 className="text-3xl font-bold">{auction.name}</h1>
 
                         {/* Key stats */}
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                        <div className="bg-white border border-slate-200 rounded-3xl p-6">
                             <div className="grid grid-cols-2 gap-5 mb-6">
                                 <div>
-                                    <p className="text-white/40 text-xs mb-1">Reserve Price</p>
-                                    <p className="text-2xl font-bold text-white">{auction.reservePrice} <span className="text-base font-normal text-white/50">USDC</span></p>
-                                    <p className="text-white/30 text-xs mt-0.5">Minimum bid to qualify</p>
+                                    <p className="text-slate-400 text-xs mb-1">Reserve Price</p>
+                                    <p className="text-2xl font-bold text-slate-900">{auction.reservePrice} <span className="text-base font-normal text-slate-500">USDC</span></p>
+                                    <p className="text-slate-400 text-xs mt-0.5">Minimum bid to qualify</p>
                                 </div>
                                 <div>
-                                    <p className="text-white/40 text-xs mb-1">Time Remaining</p>
-                                    <p className="text-2xl font-bold text-orange-300">{auction.endTime}</p>
+                                    <p className="text-slate-400 text-xs mb-1">Time Remaining</p>
+                                    <p className="text-2xl font-bold text-orange-500">{auction.endTime}</p>
                                 </div>
                                 <div>
-                                    <p className="text-white/40 text-xs mb-1">Required Deposit</p>
-                                    <p className="text-xl font-bold text-yellow-300">{auction.requiredDeposit} <span className="text-base font-normal text-white/50">USDC</span></p>
-                                    <p className="text-white/30 text-xs mt-0.5">Required from all bidders as security. Non-winners receive it back.</p>
+                                    <p className="text-slate-400 text-xs mb-1">Required Deposit</p>
+                                    <p className="text-xl font-bold text-amber-600">{auction.requiredDeposit} <span className="text-base font-normal text-slate-500">USDC</span></p>
+                                    <p className="text-slate-400 text-xs mt-0.5">Required from all bidders as security. Non-winners receive it back.</p>
                                 </div>
                                 <div>
-                                    <p className="text-white/40 text-xs mb-1">Sealed Bids</p>
-                                    <p className="text-white font-bold text-lg">{auction.bidCount}</p>
+                                    <p className="text-slate-400 text-xs mb-1">Sealed Bids</p>
+                                    <p className="text-slate-900 font-bold text-lg">{auction.bidCount}</p>
                                 </div>
                             </div>
 
                             <button
                                 type="button"
                                 onClick={onBid}
-                                className="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors"
+                                className="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
                             >
                                 Place Sealed Bid (KYC Required)
                             </button>
                         </div>
 
                         {/* How sealed bidding works */}
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                            <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+                        <div className="bg-white border border-slate-200 rounded-3xl p-5">
+                            <h2 className="text-slate-900 font-semibold mb-3 flex items-center gap-2">
                                 <span>🔒</span> How Sealed Bidding Works
                             </h2>
-                            <ol className="space-y-2.5 text-sm text-white/60">
+                            <ol className="space-y-2.5 text-sm text-slate-600">
                                 <li className="flex gap-3">
-                                    <span className="text-blue-400 font-bold shrink-0">1.</span>
+                                    <span className="text-blue-600 font-bold shrink-0">1.</span>
                                     Deposit {auction.requiredDeposit} USDC as security (required from all bidders).
                                 </li>
                                 <li className="flex gap-3">
-                                    <span className="text-blue-400 font-bold shrink-0">2.</span>
+                                    <span className="text-blue-600 font-bold shrink-0">2.</span>
                                     Enter your bid amount (must be ≥ {auction.reservePrice} USDC). It is encrypted before going on-chain.
                                 </li>
                                 <li className="flex gap-3">
-                                    <span className="text-blue-400 font-bold shrink-0">3.</span>
+                                    <span className="text-blue-600 font-bold shrink-0">3.</span>
                                     When the auction ends, Chainlink CRE decrypts all bids in a secure enclave and selects the highest bidder.
                                 </li>
                                 <li className="flex gap-3">
-                                    <span className="text-blue-400 font-bold shrink-0">4.</span>
+                                    <span className="text-blue-600 font-bold shrink-0">4.</span>
                                     Winner pays bid amount and receives NFT + deposit back. Losers claim deposit back.
                                 </li>
                             </ol>
                         </div>
 
                         {/* Bid activity */}
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                            <h2 className="text-white font-semibold mb-3">Bid Activity</h2>
+                        <div className="bg-white border border-slate-200 rounded-3xl p-5">
+                            <h2 className="text-slate-900 font-semibold mb-3">Bid Activity</h2>
                             <div className="flex items-center justify-between text-sm">
-                                <span className="text-white/50">Total sealed bids submitted</span>
-                                <span className="text-white font-bold">{auction.bidCount}</span>
+                                <span className="text-slate-500">Total sealed bids submitted</span>
+                                <span className="text-slate-900 font-bold">{auction.bidCount}</span>
                             </div>
-                            <div className="mt-3 pt-3 border-t border-white/5 flex items-center gap-2 text-xs text-white/30">
+                            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400">
                                 <span>🔒</span>
                                 <span>Individual bid amounts are encrypted and will only be revealed by Chainlink CRE after the auction ends.</span>
                             </div>

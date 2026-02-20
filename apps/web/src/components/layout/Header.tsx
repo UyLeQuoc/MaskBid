@@ -69,29 +69,29 @@ export function Header() {
     }
 
     return (
-        <header className="bg-slate-900 border-b border-white/10 sticky top-0 z-50">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2 text-white font-bold text-xl">
-                        <span className="text-blue-400">Mask</span>
+                    <Link href="/" className="flex items-center gap-2 text-slate-900 font-bold text-xl">
+                        <span className="text-blue-600">Mask</span>
                         <span>Bid</span>
                     </Link>
 
                     {/* Nav */}
                     <nav className="hidden md:flex items-center gap-6">
-                        <Link href="/auctions" className="text-white/70 hover:text-white text-sm transition-colors">
+                        <Link href="/auctions" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
                             Auctions
                         </Link>
                         {kycVerified && (
                             <>
-                                <Link href="/dashboard" className="text-white/70 hover:text-white text-sm transition-colors">
+                                <Link href="/dashboard" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
                                     Dashboard
                                 </Link>
-                                <Link href="/my-assets" className="text-white/70 hover:text-white text-sm transition-colors">
+                                <Link href="/my-assets" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
                                     My Assets
                                 </Link>
-                                <Link href="/my-bids" className="text-white/70 hover:text-white text-sm transition-colors">
+                                <Link href="/my-bids" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
                                     My Bids
                                 </Link>
                             </>
@@ -106,11 +106,11 @@ export function Header() {
                                 <span
                                     className={`hidden sm:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
                                         kycVerified
-                                            ? 'bg-green-500/20 border border-green-500/30 text-green-300'
-                                            : 'bg-orange-500/20 border border-orange-500/30 text-orange-300'
+                                            ? 'bg-green-100 border border-green-200 text-green-600'
+                                            : 'bg-orange-50 border border-orange-200 text-orange-500'
                                     }`}
                                 >
-                                    <span className={`w-1.5 h-1.5 rounded-full ${kycVerified ? 'bg-green-400' : 'bg-orange-400'}`} />
+                                    <span className={`w-1.5 h-1.5 rounded-full ${kycVerified ? 'bg-green-600' : 'bg-orange-400'}`} />
                                     {kycVerified ? 'Verified' : 'Unverified'}
                                 </span>
 
@@ -119,33 +119,33 @@ export function Header() {
                                     <button
                                         type="button"
                                         onClick={() => setMenuOpen(o => !o)}
-                                        className="flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm font-mono transition-colors"
+                                        className="flex items-center gap-2 bg-slate-100 hover:bg-slate-100 border border-slate-200 rounded-2xl px-3 py-1.5 text-slate-900 text-sm font-mono transition-colors"
                                     >
-                                        <span className="w-2 h-2 bg-green-400 rounded-full" />
+                                        <span className="w-2 h-2 bg-green-600 rounded-full" />
                                         {truncateAddress(account)}
                                     </button>
                                     {menuOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-white/10 rounded-lg shadow-xl overflow-hidden">
+                                        <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
                                             {!kycVerified && (
                                                 <Link
                                                     href="/dashboard"
                                                     onClick={() => setMenuOpen(false)}
-                                                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-orange-300 hover:text-orange-200 hover:bg-white/5 transition-colors"
+                                                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-orange-500 hover:text-orange-600 hover:bg-slate-50 transition-colors"
                                                 >
                                                     <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
                                                     Complete KYC
                                                 </Link>
                                             )}
                                             {kycVerified && (
-                                                <div className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-300 border-b border-white/5">
-                                                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                                                <div className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-600 border-b border-slate-100">
+                                                    <span className="w-1.5 h-1.5 bg-green-600 rounded-full" />
                                                     KYC Verified
                                                 </div>
                                             )}
                                             <button
                                                 type="button"
                                                 onClick={() => { handleDisconnect(); setMenuOpen(false) }}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                                             >
                                                 Disconnect
                                             </button>
@@ -157,7 +157,7 @@ export function Header() {
                             <button
                                 type="button"
                                 onClick={handleConnect}
-                                className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                                className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-2xl transition-colors"
                             >
                                 Connect Wallet
                             </button>
