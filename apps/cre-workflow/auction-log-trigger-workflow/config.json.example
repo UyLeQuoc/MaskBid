@@ -1,0 +1,10 @@
+{
+  "url": "https://<project-ref>.supabase.co/functions/v1/auction-event-handler",
+  "evms": [
+    {
+      "auctionAddress": "0xYourMaskBidAuctionContractAddress",
+      "chainSelectorName": "ethereum-sepolia",
+      "gasLimit": "300000"
+    }
+  ]
+}
