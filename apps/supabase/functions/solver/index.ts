@@ -24,10 +24,47 @@ function buildResponse(statusCode: number, body: unknown): Response {
 }
 
 /**
+ * ABI-encode the report data for MaskBidAuction._processReport
+ * Format: (uint256 auctionId, address winner, uint256 winningBid)
+ * Returns the hex-encoded ABI data
+ */
+function encodeAuctionReport(
+  auctionId: number,
+  winner: string,
+  winningBid: number,
+): string {
+  // Remove 0x prefix from winner address if present
+  const cleanWinner = winner.toLowerCase().replace(/^0x/, "");
+
+  // Pad auctionId to 32 bytes (64 hex chars)
+  const auctionIdHex = BigInt(auctionId).toString(16).padStart(64, "0");
+
+  // Pad winner address to 32 bytes (64 hex chars, left-padded with zeros)
+  const winnerHex = cleanWinner.padStart(64, "0");
+
+  // Pad winningBid to 32 bytes (64 hex chars) - convert from USDC (6 decimals)
+  // winningBid is already in USDC units, just convert to BigInt
+  const winningBidUnits = BigInt(Math.floor(winningBid * 1e6));
+  const winningBidHex = winningBidUnits.toString(16).padStart(64, "0");
+
+  // Function selector for _processReport(bytes calldata report) is not needed
+  // The Forwarder calls onReport(bytes metadata, bytes report) directly
+  // and the report bytes are decoded via abi.decode inside _processReport
+
+  // ABI-encoded tuple: (uint256 auctionId, address winner, uint256 winningBid)
+  const encodedReport = `0x${auctionIdHex}${winnerHex}${winningBidHex}`;
+
+  return encodedReport;
+}
+
+/**
  * Decrypt a bid using RSA private key
  * In production, this would use proper crypto libraries
  */
-async function decryptBid(encryptedBid: string, privateKey: string): Promise<{ user: string; amount: number }> {
+async function decryptBid(
+  encryptedBid: string,
+  privateKey: string,
+): Promise<{ user: string; amount: number }> {
   // TODO: Implement actual RSA decryption
   // For hackathon demo, we'll simulate decryption
   // In production: use Web Crypto API or node-forge
@@ -56,7 +93,9 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return buildResponse(STATUS_BAD_REQUEST, { error: "Only POST method is supported" });
+    return buildResponse(STATUS_BAD_REQUEST, {
+      error: "Only POST method is supported",
+    });
   }
 
   // ============================================================================
@@ -76,21 +115,28 @@ Deno.serve(async (req: Request) => {
     console.log("   Received:", token?.slice(0, 10) + "...");
     return buildResponse(STATUS_UNAUTHORIZED, {
       error: "Access Denied: Enclave Signature Missing",
-      message: "This endpoint only accepts requests from authorized Chainlink Confidential Enclaves",
+      message:
+        "This endpoint only accepts requests from authorized Chainlink Confidential Enclaves",
     });
   }
 
   console.log("✅ Authorization verified: Request from Chainlink Enclave");
 
   // Parse request body
-  let body: { auctionId?: string; action?: string };
+  let body: {
+    auctionId?: string;
+    contractAuctionId?: number;
+    action?: string;
+  };
   try {
     body = await req.json();
   } catch {
-    return buildResponse(STATUS_BAD_REQUEST, { error: "Invalid JSON in request body" });
+    return buildResponse(STATUS_BAD_REQUEST, {
+      error: "Invalid JSON in request body",
+    });
   }
 
-  const { auctionId, action } = body;
+  const { auctionId, contractAuctionId, action } = body;
 
   if (!auctionId || action !== "resolve") {
     return buildResponse(STATUS_BAD_REQUEST, {
@@ -152,12 +198,14 @@ Deno.serve(async (req: Request) => {
           console.error(`Failed to decrypt bid ${bid.id}:`, err);
           return null;
         }
-      })
+      }),
     );
 
-    const validBids = decryptedBids.filter((b): b is { user: string; amount: number; bidId: string } =>
-      b !== null && b.amount > 0
-    );
+    const validBids = decryptedBids.filter((b): b is {
+      user: string;
+      amount: number;
+      bidId: string;
+    } => b !== null && b.amount > 0);
 
     if (validBids.length === 0) {
       return buildResponse(STATUS_BAD_REQUEST, {
@@ -199,20 +247,53 @@ Deno.serve(async (req: Request) => {
       .eq("id", auctionId);
 
     // ============================================================================
+    // GET CONTRACT AUCTION ID
+    // ============================================================================
+    // Use provided contractAuctionId or fetch from database
+    let onChainAuctionId = contractAuctionId;
+    if (!onChainAuctionId) {
+      const { data: auction } = await supabase
+        .from("auctions")
+        .select("contract_auction_id")
+        .eq("id", auctionId)
+        .single();
+
+      if (auction?.contract_auction_id) {
+        onChainAuctionId = auction.contract_auction_id;
+      } else {
+        console.warn("⚠️  No contract_auction_id found, using 0");
+        onChainAuctionId = 0;
+      }
+    }
+
+    // ============================================================================
+    // ENCODE REPORT FOR ON-CHAIN DELIVERY
+    // ============================================================================
+    // Create ABI-encoded report for MaskBidAuction._processReport()
+    const encodedReport = encodeAuctionReport(
+      onChainAuctionId,
+      winner.user,
+      winner.amount,
+    );
+
+    console.log(`📝 Encoded report for on-chain delivery: ${encodedReport}`);
+
+    // ============================================================================
     // RETURN RESULT (Will be encrypted if encryptOutput: true in workflow)
     // ============================================================================
     const result = {
       winner: winner.user,
       amount: winner.amount,
       assetId: auctionId,
+      contractAuctionId: onChainAuctionId,
       totalBids: validBids.length,
       timestamp: new Date().toISOString(),
+      report: encodedReport, // ABI-encoded report for _processReport()
     };
 
-    console.log("✅ Auction resolved successfully");
+    console.log("✅ Auction resolved successfully with on-chain report");
 
     return buildResponse(STATUS_OK, result);
-
   } catch (error) {
     console.error("Solver error:", error);
     return buildResponse(STATUS_SERVER_ERROR, {

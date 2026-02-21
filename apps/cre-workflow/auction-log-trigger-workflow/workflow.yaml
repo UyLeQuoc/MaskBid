@@ -1,0 +1,26 @@
+# ==========================================================================
+# AUCTION LOG TRIGGER WORKFLOW
+# Listens to MaskBidAuction contract events and syncs to Supabase
+# ==========================================================================
+# Events tracked:
+#   - AuctionCreated: New auction created on-chain
+#   - BidPlaced: New bid placed with USDC escrow
+#   - AuctionEnded: Auction end time reached
+#   - AuctionFinalized: Winner determined and tokens transferred
+#   - BidRefunded: Losing bidder claimed refund
+
+local-simulation:
+  user-workflow:
+    workflow-name: "auction-log-trigger-workflow"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "../secrets.yaml"
+
+staging:
+  user-workflow:
+    workflow-name: "auction-log-trigger-workflow"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "../secrets.yaml"

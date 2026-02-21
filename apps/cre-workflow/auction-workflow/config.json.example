@@ -2,5 +2,10 @@
   "schedule": "0 */5 * * * *",
   "solverUrl": "https://<project-ref>.supabase.co/functions/v1/solver",
   "auctionId": "auction-001",
-  "owner": "0xYourWalletAddress"
+  "owner": "0xYourWalletAddress",
+  "supabaseUrl": "https://<project-ref>.supabase.co",
+  "supabaseKey": "{{.supabase_service_role_key}}",
+  "auctionContractAddress": "0xYourMaskBidAuctionContractAddress",
+  "chainSelectorName": "ethereum-sepolia",
+  "gasLimit": "500000"
 }

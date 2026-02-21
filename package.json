@@ -29,6 +29,7 @@
 		"packages/*"
 	],
 	"dependencies": {
-		"@chainlink/cre-sdk-javy-plugin": "^1.0.9"
+		"@chainlink/cre-sdk-javy-plugin": "^1.0.9",
+		"ethers": "^6.16.0"
 	}
 }
