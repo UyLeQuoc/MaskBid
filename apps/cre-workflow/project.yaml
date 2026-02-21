@@ -18,7 +18,7 @@
 local-simulation:
   rpcs:
     - chain-name: ethereum-testnet-sepolia
-      url: https://virtual.sepolia.eu.rpc.tenderly.co/c4aabf7d-f530-46c7-88be-44313fd24c2e
+      url: https://virtual.sepolia.eu.rpc.tenderly.co/8c5c110e-0641-4255-ae82-73a983077b86
 
 # ==========================================================================
 staging:

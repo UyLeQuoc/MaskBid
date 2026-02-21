@@ -269,6 +269,20 @@ contract TokenizedAssetPlatform is ERC1155, AccessControl, ERC1155Burnable, Rece
         return assets[id].totalSupply;
     }
 
+    // KYC state
+    mapping(address => bool) public kycVerified;
+
+    event KYCStatusUpdated(address indexed user, bool indexed status);
+
+    function setKYCStatus(address user, bool status) public onlyRole(ADMIN_ROLE) {
+        kycVerified[user] = status;
+        emit KYCStatusUpdated(user, status);
+    }
+
+    function isKYCVerified(address user) public view returns (bool) {
+        return kycVerified[user];
+    }
+
     function supportsInterface(bytes4 interfaceId) public view override(ERC1155, AccessControl, ReceiverTemplate)
         returns (bool)
     {
