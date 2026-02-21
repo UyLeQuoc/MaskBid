@@ -55,4 +55,5 @@ apps/21Challenge
 apps/contract/package_summaries
 
 # Misc
-*.pem
+*.pemapps/cre-workflow/contracts/output/
+apps/cre-workflow/contracts/abi/
