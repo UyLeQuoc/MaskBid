@@ -19,7 +19,9 @@ contract DeployScript is Script {
 
         console.log("TokenizedAssetPlatform deployed to:", address(platform));
         console.log("\nUpdate these files:");
-        console.log("  asset-log-trigger-workflow/config.json  -> evms[0].assetAddress");
-        console.log("  apps/web/.env  -> CONTRACT_ADDRESS + NEXT_PUBLIC_CONTRACT_ADDRESS");
+        console.log("  apps/contract/.env                                -> CONTRACT_ADDRESS");
+        console.log("  apps/contract/.env.example                        -> CONTRACT_ADDRESS");
+        console.log("  apps/web/.env + .env.example                      -> CONTRACT_ADDRESS + NEXT_PUBLIC_CONTRACT_ADDRESS");
+        console.log("  apps/cre-workflow/asset-log-trigger-workflow/config.json -> evms[0].assetAddress");
     }
 }
