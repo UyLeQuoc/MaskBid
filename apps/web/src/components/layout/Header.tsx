@@ -94,6 +94,9 @@ export function Header() {
                                 <Link href="/my-bids" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
                                     My Bids
                                 </Link>
+                                <Link href="/verifier" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
+                                    Verifier
+                                </Link>
                             </>
                         )}
                     </nav>
