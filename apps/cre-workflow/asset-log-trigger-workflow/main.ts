@@ -1,6 +1,6 @@
-import { 
-  cre, 
-  Runner, 
+import {
+  cre,
+  Runner,
   type Runtime,
   getNetwork,
   type HTTPPayload,
@@ -31,14 +31,17 @@ type PostResponse = {
   statusCode: number
 }
 
-// Multiple events CRE can process are: AssetRegistered, AssetVerified, TokensMinted and TokensRedeemed
-// Use string for bigint because bigint cannot be serialized
 type AssetRegisterParams = {
   action: "AssetRegistered"
   assetId: string
   issuer: string
-  initialSupply: string
   assetName: string
+  assetType: string
+  description: string
+  serialNumber: string
+  reservePrice: string
+  requiredDeposit: string
+  auctionDuration: string
 }
 
 type AssetVerifiedParams = {
@@ -61,19 +64,10 @@ type TokensRedeemedParams = {
 
 type AssetParams = AssetRegisterParams | AssetVerifiedParams | TokensMintedParams | TokensRedeemedParams;
 
-
-// function to be used to send multiple request to AWS lambda function
 const postData = (sendRequester: HTTPSendRequester, config: Config, assetParams: AssetParams): PostResponse => {
-  // 1. Prepare the payload for POST request
-  let dataToSend: any = { ...assetParams };
-
-  // 2. Serialize the data to JSON and encode as bytes
-  const bodyBytes = new TextEncoder().encode(JSON.stringify(dataToSend))
-
-  // 3. Convert to base64 for the request
+  const bodyBytes = new TextEncoder().encode(JSON.stringify(assetParams))
   const body = Buffer.from(bodyBytes).toString("base64")
 
-  // 4. Construct the POST request with cacheSettings
   const req = {
     url: config.url,
     method: "POST" as const,
@@ -82,12 +76,11 @@ const postData = (sendRequester: HTTPSendRequester, config: Config, assetParams:
       "Content-Type": "application/json",
     },
     cacheSettings: {
-      readFromCache: true, // Enable reading from cache
-      maxAgeMs: 60000, // Accept cached responses up to 60 seconds old
+      readFromCache: true,
+      maxAgeMs: 60000,
     },
   }
 
-  // 5. Send the request and wait for the response
   const resp = sendRequester.sendRequest(req).result()
   if (!ok(resp)) {
     throw new Error(`HTTP request failed with status: ${resp.statusCode}`)
@@ -95,20 +88,18 @@ const postData = (sendRequester: HTTPSendRequester, config: Config, assetParams:
   return { statusCode: resp.statusCode }
 }
 
-
 const eventAbi = parseAbi([
-  "event AssetRegistered(uint256 indexed assetId, address indexed issuer, uint256 indexed initialSupply, string name, string symbol, string assetType)",
+  "event AssetRegistered(uint256 indexed assetId, address indexed issuer, string name, string symbol, string assetType, string description, string serialNumber, uint256 reservePrice, uint256 requiredDeposit, uint256 auctionDuration)",
   "event AssetVerified(uint256 indexed assetId, bool indexed isValid, string verificationDetails)",
   "event TokensMinted(uint256 indexed assetId, uint256 indexed amount, address indexed to, string reason)",
   "event TokensRedeemed(uint256 indexed assetId, uint256 indexed amount, address indexed account, string settlementDetails)",
 ])
 
 const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
-  
+
   const topics = log.topics.map((topic) => bytesToHex(topic)) as [`0x${string}`, ...`0x${string}`[]]
   const data = bytesToHex(log.data)
 
-  // Decode the event
   const decodedLog = decodeEventLog({
     abi: eventAbi,
     data,
@@ -117,49 +108,57 @@ const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
 
   runtime.log(`Event name: ${decodedLog.eventName}`)
   let assetParams: AssetParams
-  
+
   const httpClient = new cre.capabilities.HTTPClient()
 
-  // extract info from event and prepare the parameters for function postData
   switch(decodedLog.eventName) {
-    case "AssetRegistered":
-      const { assetId: assetIdReg, issuer, initialSupply, name } = decodedLog.args
+    case "AssetRegistered": {
+      const { assetId, issuer, name, assetType, description, serialNumber, reservePrice, requiredDeposit, auctionDuration } = decodedLog.args
       assetParams = {
         action: "AssetRegistered",
-        assetId: assetIdReg.toString(),
+        assetId: assetId.toString(),
         issuer,
-        initialSupply: initialSupply.toString(),
         assetName: name,
-      };    
-      runtime.log(`Event AssetRegistered detected: assetId ${assetIdReg} | issuer ${issuer} initialSupply ${initialSupply} | name ${name}`)
-      break;
-    case "AssetVerified":
-      const { assetId: assetIdVer, isValid } = decodedLog.args
+        assetType,
+        description,
+        serialNumber,
+        reservePrice: reservePrice.toString(),
+        requiredDeposit: requiredDeposit.toString(),
+        auctionDuration: auctionDuration.toString(),
+      }
+      runtime.log(`Event AssetRegistered: assetId=${assetId} issuer=${issuer} name=${name} type=${assetType}`)
+      break
+    }
+    case "AssetVerified": {
+      const { assetId, isValid } = decodedLog.args
       assetParams = {
         action: "AssetVerified",
-        assetId: assetIdVer.toString(),
+        assetId: assetId.toString(),
         isValid
       }
-      runtime.log(`Event AssetVerified detected: assetId ${assetIdVer} | isValid ${isValid}`)
+      runtime.log(`Event AssetVerified: assetId=${assetId} isValid=${isValid}`)
       break
-    case "TokensMinted":
-      const { assetId: assetIdMint, amount: amountMint } = decodedLog.args
+    }
+    case "TokensMinted": {
+      const { assetId, amount } = decodedLog.args
       assetParams = {
         action: "TokensMinted",
-        assetId: assetIdMint.toString(),
-        amount: amountMint.toString()
+        assetId: assetId.toString(),
+        amount: amount.toString()
       }
-      runtime.log(`Event TokensMinted detected: assetId ${assetIdMint} | amount ${amountMint}`)
+      runtime.log(`Event TokensMinted: assetId=${assetId} amount=${amount}`)
       break
-    case "TokensRedeemed":
-      const {assetId: assetIdRedeem, amount: amountRedeem } = decodedLog.args
+    }
+    case "TokensRedeemed": {
+      const { assetId, amount } = decodedLog.args
       assetParams = {
         action: "TokensRedeemed",
-        assetId: assetIdRedeem.toString(),
-        amount: amountRedeem.toString()
+        assetId: assetId.toString(),
+        amount: amount.toString()
       }
-      runtime.log(`Event TokensRedeemed detected: assetId ${assetIdRedeem} | amount ${amountRedeem}`)
+      runtime.log(`Event TokensRedeemed: assetId=${assetId} amount=${amount}`)
       break
+    }
     default:
       return "No key event detected"
   }
@@ -180,17 +179,14 @@ const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
 const onHTTPTrigger = (runtime: Runtime<Config>, payload: HTTPPayload): string => {
 	runtime.log('Raw HTTP trigger received')
 
-	// Expect a HTTP request with metdata info, and it cannot be empty
 	if (!payload.input || payload.input.length === 0) {
 		runtime.log('HTTP trigger payload is empty')
     throw new Error("Json payload is empty")
 	}
 
-	// Log the raw JSON for debugging (human-readable).
 	runtime.log(`Payload bytes payloadBytes ${payload.input.toString()}`)
 
 	try {
-    // fetch the assetId and newUri from http request
 		runtime.log(`Parsed HTTP trigger received payload ${payload.input.toString()}`)
     const responseText = Buffer.from(payload.input).toString('utf-8')
     const {assetId, uid} = JSON.parse(responseText)
@@ -199,10 +195,9 @@ const onHTTPTrigger = (runtime: Runtime<Config>, payload: HTTPPayload): string =
     runtime.log(`Asset UID is ${uid}`)
 
     if(!assetId || !uid) {
-      throw new Error("Failed to extract assetId or newUri from Http request, please check the json payload file")
+      throw new Error("Failed to extract assetId or newUri from Http request")
     }
 
-    // init an evmClient to send transaction 
     const evmConfig = runtime.config.evms[0]
     runtime.log(`Updating metadata for Asset State contract, address is: ${evmConfig.assetAddress}`)
 
@@ -222,7 +217,6 @@ const onHTTPTrigger = (runtime: Runtime<Config>, payload: HTTPPayload): string =
     [BigInt(assetId), uid as string]
   )
 
-    // generate signed report
     const reportResponse = runtime.report({
       encodedPayload: hexToBase64(reportData),
 			encoderName: 'evm',
@@ -231,7 +225,6 @@ const onHTTPTrigger = (runtime: Runtime<Config>, payload: HTTPPayload): string =
     })
     .result()
 
-    // submit report to the tokenized asset platform contract 
     const writeReportResult = evmClient
 		.writeReport(runtime, {
 			receiver: evmConfig.assetAddress,
@@ -243,9 +236,7 @@ const onHTTPTrigger = (runtime: Runtime<Config>, payload: HTTPPayload): string =
 		.result()
 
     const txHash = bytesToHex(writeReportResult.txHash || new Uint8Array(32))
-
     runtime.log(`write report transaction succeeded: ${txHash}`)
-
     return txHash
 
 	} catch (error) {

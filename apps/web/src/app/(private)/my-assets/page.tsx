@@ -1,38 +1,69 @@
 'use client'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { useSDK } from '@metamask/sdk-react'
 import { useQueryState } from 'nuqs'
 import { Suspense } from 'react'
+import { createWalletClient, createPublicClient, custom, http, parseAbi } from 'viem'
+import { sepolia } from 'viem/chains'
+import { env } from '@/configs/env'
+import { CRECommandBox } from '@/components/CRECommandBox'
 
-const ASSETS = [
-    {
-        id: '1', name: 'Rolex Submariner 2023', type: 'Watch', status: 'Verified', image: '⌚', date: 'Jan 10, 2026',
-        description: 'Rolex Submariner Date Ref. 126610LN in mint condition. Full set including box, papers, and certificate of authenticity.',
-        serial: 'SUB-2023-00471', reservePrice: '2.0',
-    },
-    {
-        id: '2', name: 'Oil Painting — Coastal Sunrise', type: 'Art', status: 'Pending Verification', image: '🎨', date: 'Feb 3, 2026',
-        description: 'Original oil on canvas, 60x90cm. Signed by artist. Accompanied by gallery provenance certificate.',
-        serial: 'ART-CS-2021-88', reservePrice: '0.5',
-    },
-    {
-        id: '3', name: '1kg Gold Bar (LBMA Certified)', type: 'Gold', status: 'In Auction', image: '🥇', date: 'Dec 15, 2025',
-        description: 'PAMP Suisse 1kg gold bar, 999.9 fine gold. LBMA certified with serial number and assay certificate.',
-        serial: 'PAMP-1KG-00392', reservePrice: '16.0',
-    },
-]
+const CONTRACT_ADDRESS = env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`
+const RPC_URL = env.NEXT_PUBLIC_RPC_URL
+
+const REDEEM_ABI = parseAbi([
+    'function redeem(uint256 assetId, uint256 amount, string settlementDetails) public',
+])
+
+type AssetState = {
+    asset_id: string
+    asset_name: string
+    issuer: string
+    supply: number
+    verified: boolean
+    token_minted: number
+    token_redeemed: number
+    asset_type: string | null
+    description: string | null
+    serial_number: string | null
+    reserve_price: number | null
+    required_deposit: number | null
+    auction_duration: number | null
+    created_at: string
+}
+
+function deriveStatus(a: AssetState): string {
+    if (a.token_minted > 0 && a.token_redeemed >= a.token_minted) return 'Redeemed'
+    if (a.token_minted > 0) return 'Minted'
+    if (a.verified) return 'Verified'
+    return 'Pending Verification'
+}
 
 const STATUS_COLORS: Record<string, string> = {
-    Verified: 'text-green-600 bg-green-100 border-green-200',
+    'Minted': 'text-green-600 bg-green-100 border-green-200',
+    'Verified': 'text-green-600 bg-green-100 border-green-200',
     'Pending Verification': 'text-orange-500 bg-orange-50 border-orange-200',
+    'Redeemed': 'text-slate-500 bg-slate-100 border-slate-200',
     'In Auction': 'text-blue-600 bg-blue-50 border-blue-200',
 }
 
-const TIMELINE = ['Registered', 'Pending Verification', 'Verified', 'Minted', 'In Auction']
-const STATUS_POSITION: Record<string, number> = {
-    Registered: 0, 'Pending Verification': 1, Verified: 2, Minted: 3, 'In Auction': 4,
+const TIMELINE = ['Registered', 'Pending Verification', 'Verified', 'Minted']
+const STATUS_STEP: Record<string, number> = {
+    'Registered': 0,
+    'Pending Verification': 1,
+    'Verified': 2,
+    'Minted': 3,
+    'Redeemed': 3,
+    'In Auction': 3,
 }
 
-function AssetList({ onSelect }: { onSelect: (id: string) => void }) {
+type AssetIcon = Record<string, string>
+const TYPE_ICON: AssetIcon = {
+    watch: '⌚', art: '🎨', gold: '🥇', 'real estate': '🏠', other: '📦',
+}
+
+function AssetList({ assets, loading, onSelect }: { assets: AssetState[], loading: boolean, onSelect: (id: string) => void }) {
     return (
         <div className="bg-slate-50 min-h-screen text-slate-900">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -49,39 +80,108 @@ function AssetList({ onSelect }: { onSelect: (id: string) => void }) {
                     </Link>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {ASSETS.map(asset => (
-                        <div key={asset.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-slate-300 transition-colors">
-                            <div className="h-36 bg-slate-100 flex items-center justify-center text-6xl">
-                                {asset.image}
-                            </div>
-                            <div className="p-5">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{asset.type}</span>
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_COLORS[asset.status]}`}>
-                                        {asset.status}
-                                    </span>
+                {loading && (
+                    <div className="flex items-center justify-center py-20">
+                        <svg className="animate-spin w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                    </div>
+                )}
+
+                {!loading && assets.length === 0 && (
+                    <div className="text-center py-20 text-slate-400">
+                        <p className="text-4xl mb-4">📦</p>
+                        <p className="font-medium">No assets registered yet.</p>
+                        <p className="text-sm mt-1">Register your first physical asset to get started.</p>
+                    </div>
+                )}
+
+                {!loading && assets.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {assets.map(asset => {
+                            const status = deriveStatus(asset)
+                            const icon = TYPE_ICON[asset.asset_type?.toLowerCase() ?? ''] ?? '📦'
+                            return (
+                                <div key={asset.asset_id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-slate-300 transition-colors">
+                                    <div className="h-36 bg-slate-100 flex items-center justify-center text-6xl">
+                                        {icon}
+                                    </div>
+                                    <div className="p-5">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            {asset.asset_type && (
+                                                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{asset.asset_type}</span>
+                                            )}
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_COLORS[status]}`}>
+                                                {status}
+                                            </span>
+                                        </div>
+                                        <h3 className="text-slate-900 font-semibold mb-1">{asset.asset_name}</h3>
+                                        <p className="text-slate-400 text-xs mb-4">
+                                            Registered {new Date(asset.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => onSelect(asset.asset_id)}
+                                            className="block w-full text-center bg-slate-100 border border-slate-200 text-slate-900 text-sm font-medium py-2 rounded-2xl transition-colors hover:bg-slate-200"
+                                        >
+                                            View Details
+                                        </button>
+                                    </div>
                                 </div>
-                                <h3 className="text-slate-900 font-semibold mb-1">{asset.name}</h3>
-                                <p className="text-slate-400 text-xs mb-4">Registered {asset.date}</p>
-                                <button
-                                    type="button"
-                                    onClick={() => onSelect(asset.id)}
-                                    className="block w-full text-center bg-slate-100 hover:bg-slate-100 border border-slate-200 text-slate-900 text-sm font-medium py-2 rounded-2xl transition-colors"
-                                >
-                                    View Details
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                            )
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     )
 }
 
-function AssetDetail({ asset, onBack }: { asset: typeof ASSETS[number]; onBack: () => void }) {
-    const currentStep = STATUS_POSITION[asset.status] ?? 0
+function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void }) {
+    const { account } = useSDK()
+    const [redeeming, setRedeeming] = useState(false)
+    const [redeemConfirming, setRedeemConfirming] = useState(false)
+    const [redeemTxHash, setRedeemTxHash] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+
+    const status = deriveStatus(asset)
+    const currentStep = STATUS_STEP[status] ?? 0
+    const icon = TYPE_ICON[asset.asset_type?.toLowerCase() ?? ''] ?? '📦'
+    const canRedeem = asset.token_minted > 0 && asset.token_redeemed < asset.token_minted
+
+    const handleRedeem = async () => {
+        if (!account) { setError('Wallet not connected'); return }
+        setRedeeming(true)
+        setError(null)
+        try {
+            const walletClient = createWalletClient({
+                chain: sepolia,
+                transport: custom((window as any).ethereum),
+            })
+            const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC_URL) })
+
+            await walletClient.switchChain({ id: sepolia.id })
+
+            const hash = await walletClient.writeContract({
+                address: CONTRACT_ADDRESS,
+                abi: REDEEM_ABI,
+                functionName: 'redeem',
+                args: [BigInt(asset.asset_id), 1n, 'Seller redeemed RWA NFT'],
+                account: account as `0x${string}`,
+            })
+
+            setRedeeming(false)
+            setRedeemConfirming(true)
+            await publicClient.waitForTransactionReceipt({ hash, timeout: 300_000 })
+            setRedeemConfirming(false)
+            setRedeemTxHash(hash)
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'Transaction failed')
+            setRedeeming(false)
+            setRedeemConfirming(false)
+        }
+    }
 
     return (
         <div className="bg-slate-50 min-h-screen text-slate-900">
@@ -96,24 +196,30 @@ function AssetDetail({ asset, onBack }: { asset: typeof ASSETS[number]; onBack: 
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div className="h-64 bg-white border border-slate-200 rounded-3xl flex items-center justify-center text-8xl">
-                        {asset.image}
+                        {icon}
                     </div>
 
                     <div>
                         <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{asset.type}</span>
+                            {asset.asset_type && (
+                                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{asset.asset_type}</span>
+                            )}
                         </div>
-                        <h1 className="text-2xl font-bold mb-4">{asset.name}</h1>
-                        <p className="text-slate-600 text-sm leading-relaxed mb-6">{asset.description}</p>
+                        <h1 className="text-2xl font-bold mb-4">{asset.asset_name}</h1>
+                        {asset.description && (
+                            <p className="text-slate-600 text-sm leading-relaxed mb-6">{asset.description}</p>
+                        )}
 
-                        <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 text-sm">
+                        <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 text-sm mb-4">
                             {[
-                                { label: 'Type', value: asset.type },
-                                { label: 'Serial / Certificate', value: asset.serial },
-                                { label: 'Registered Date', value: asset.date },
-                                { label: 'Reserve Price', value: `Ξ ${asset.reservePrice}` },
-                                { label: 'Status', value: asset.status },
-                            ].map(row => (
+                                { label: 'Type', value: asset.asset_type },
+                                { label: 'Serial / Certificate', value: asset.serial_number },
+                                { label: 'Reserve Price', value: asset.reserve_price != null ? `${asset.reserve_price} USDC` : null },
+                                { label: 'Required Deposit', value: asset.required_deposit != null ? `${asset.required_deposit} USDC` : null },
+                                { label: 'Auction Duration', value: asset.auction_duration != null ? `${asset.auction_duration}h` : null },
+                                { label: 'Status', value: status },
+                                { label: 'On-chain ID', value: `#${asset.asset_id}` },
+                            ].filter(r => r.value).map(row => (
                                 <div key={row.label} className="flex justify-between px-4 py-3">
                                     <span className="text-slate-400">{row.label}</span>
                                     <span className="text-slate-900 font-medium">{row.value}</span>
@@ -121,17 +227,51 @@ function AssetDetail({ asset, onBack }: { asset: typeof ASSETS[number]; onBack: 
                             ))}
                         </div>
 
-                        {asset.status === 'Verified' && (
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2 text-red-700 text-sm mb-3">
+                                {error}
+                            </div>
+                        )}
+
+                        {status === 'Verified' && (
                             <button
                                 type="button"
-                                onClick={() => console.log('Create auction stub')}
-                                className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
+                                onClick={() => console.log('Create auction — coming soon')}
+                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
                             >
                                 Create Auction
                             </button>
                         )}
+
+                        {canRedeem && !redeemTxHash && (
+                            <button
+                                type="button"
+                                onClick={handleRedeem}
+                                disabled={redeeming || redeemConfirming}
+                                className="w-full bg-slate-800 hover:bg-slate-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2"
+                            >
+                                {(redeeming || redeemConfirming) ? (
+                                    <>
+                                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        {redeemConfirming ? 'Confirming on-chain…' : 'Waiting for MetaMask…'}
+                                    </>
+                                ) : 'Redeem NFT'}
+                            </button>
+                        )}
                     </div>
                 </div>
+
+                {redeemTxHash && (
+                    <div className="mb-8">
+                        <CRECommandBox
+                            txHash={redeemTxHash}
+                            steps={[{ label: 'TokensRedeemed', eventIndex: 1 }]}
+                        />
+                    </div>
+                )}
 
                 {/* Timeline */}
                 <div className="bg-white border border-slate-200 rounded-3xl p-6">
@@ -170,15 +310,28 @@ function AssetDetail({ asset, onBack }: { asset: typeof ASSETS[number]; onBack: 
 }
 
 function MyAssetsPageInner() {
+    const { account, connected } = useSDK()
     const [assetId, setAssetId] = useQueryState('assetId')
+    const [assets, setAssets] = useState<AssetState[]>([])
+    const [loading, setLoading] = useState(false)
 
-    const selected = ASSETS.find(a => a.id === assetId)
+    useEffect(() => {
+        if (!connected || !account) return
+        setLoading(true)
+        fetch(`/api/assets?seller=${account}`)
+            .then(r => r.json())
+            .then((data: AssetState[]) => setAssets(Array.isArray(data) ? data : []))
+            .catch(() => setAssets([]))
+            .finally(() => setLoading(false))
+    }, [connected, account])
+
+    const selected = assets.find(a => a.asset_id === assetId)
 
     if (selected) {
         return <AssetDetail asset={selected} onBack={() => setAssetId(null)} />
     }
 
-    return <AssetList onSelect={id => setAssetId(id)} />
+    return <AssetList assets={assets} loading={loading} onSelect={id => setAssetId(id)} />
 }
 
 export default function MyAssetsPage() {

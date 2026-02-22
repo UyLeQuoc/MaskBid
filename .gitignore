@@ -46,13 +46,5 @@ temp/
 .DS_Store
 Thumbs.db
 
-# Tunnel (specific to this repo)
-apps/tunnel-main
-apps/old-game
-apps/21Challenge
-
-# Summary (specific to this repo)
-apps/contract/package_summaries
-
 # Misc
 *.pem

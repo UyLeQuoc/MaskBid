@@ -6,6 +6,8 @@ export const env = createEnv({
 		CONTRACT_ADDRESS: z.string(),
 		ADMIN_PRIVATE_KEY: z.string(),
 		RPC_URL: z.string(),
+		SUPABASE_URL: z.string().optional(),
+		SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 	},
 	client: {
 		NEXT_PUBLIC_APP_ID: z.string().optional(),
@@ -18,6 +20,8 @@ export const env = createEnv({
 		CONTRACT_ADDRESS: process.env.CONTRACT_ADDRESS,
 		ADMIN_PRIVATE_KEY: process.env.ADMIN_PRIVATE_KEY,
 		RPC_URL: process.env.RPC_URL,
+		SUPABASE_URL: process.env.SUPABASE_URL,
+		SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
 		NEXT_PUBLIC_APP_ID: process.env.NEXT_PUBLIC_APP_ID,
 		NEXT_PUBLIC_ACTION: process.env.NEXT_PUBLIC_ACTION,
 		NEXT_PUBLIC_CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS,

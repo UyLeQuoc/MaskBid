@@ -1,0 +1,21 @@
+{
+	"name": "contract",
+	"version": "1.0.0",
+	"scripts": {
+		"build": "forge build",
+		"deploy": "set -a && source .env && set +a && forge script script/Deploy.s.sol:DeployScript --rpc-url $TENDERLY_VIRTUAL_TESTNET_RPC_URL --broadcast --slow --verify --verifier custom --verifier-url $TENDERLY_VERIFIER_URL",
+		"register": "bun run scripts/2_registerNewAsset.ts",
+		"verify-asset": "bun run scripts/3_verifyAsset.ts",
+		"readUid": "bun run scripts/4_readUid.ts",
+		"mint": "bun run scripts/5_mint.ts",
+		"redeem": "bun run scripts/6_redeem.ts"
+	},
+	"dependencies": {
+		"dotenv": "^17.2.3",
+		"viem": "^2.44.4"
+	},
+	"devDependencies": {
+		"@types/node": "^25.2.3",
+		"bun-types": "^1.3.9"
+	}
+}
