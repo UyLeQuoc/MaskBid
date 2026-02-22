@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useSDK } from '@metamask/sdk-react'
-import { createWalletClient, createPublicClient, custom, http, parseAbi } from 'viem'
+import { createWalletClient, createPublicClient, custom, http, parseAbi, toEventSelector } from 'viem'
 import { sepolia } from 'viem/chains'
 import { env } from '@/configs/env'
 import { CRECommandBox } from '@/components/CRECommandBox'
@@ -13,6 +13,10 @@ const RPC_URL = env.NEXT_PUBLIC_RPC_URL
 const REGISTER_ABI = parseAbi([
     'function registerAsset(string name, string symbol, string assetType, string description, string serialNumber, uint256 reservePrice, uint256 requiredDeposit, uint256 auctionDuration) public',
 ])
+
+const ASSET_REGISTERED_TOPIC = toEventSelector(
+    'AssetRegistered(uint256,address,string,string,string,string,string,uint256,uint256,uint256)'
+)
 
 function autoSymbol(name: string, type: string): string {
     const n = name.replace(/\s+/g, '').slice(0, 3).toUpperCase()
@@ -27,13 +31,11 @@ export default function RegisterAssetPage() {
         type: '',
         description: '',
         serial: '',
-        reservePrice: '',
-        requiredDeposit: '',
-        auctionDuration: '72',
     })
     const [submitting, setSubmitting] = useState(false)
     const [confirming, setConfirming] = useState(false)
     const [txHash, setTxHash] = useState<string | null>(null)
+    const [eventIndex, setEventIndex] = useState(0)
     const [error, setError] = useState<string | null>(null)
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -64,17 +66,22 @@ export default function RegisterAssetPage() {
                     form.type.toLowerCase(),
                     form.description,
                     form.serial,
-                    BigInt(form.reservePrice || '0'),
-                    BigInt(form.requiredDeposit || '0'),
-                    BigInt(form.auctionDuration),
+                    0n,
+                    0n,
+                    0n,
                 ],
                 account: account as `0x${string}`,
             })
 
             setSubmitting(false)
             setConfirming(true)
-            await publicClient.waitForTransactionReceipt({ hash, timeout: 300_000 })
+            const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 300_000 })
             setConfirming(false)
+
+            const idx = receipt.logs.findIndex(
+                log => log.topics[0]?.toLowerCase() === ASSET_REGISTERED_TOPIC.toLowerCase()
+            )
+            setEventIndex(idx >= 0 ? idx : 0)
             setTxHash(hash)
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : 'Transaction failed')
@@ -95,7 +102,7 @@ export default function RegisterAssetPage() {
 
                     <CRECommandBox
                         txHash={txHash}
-                        steps={[{ label: 'AssetRegistered', eventIndex: 0 }]}
+                        steps={[{ label: 'AssetRegistered', eventIndex }]}
                         onDone={() => { window.location.href = '/my-assets' }}
                     />
 
@@ -116,14 +123,7 @@ export default function RegisterAssetPage() {
                     ← Back to My Assets
                 </Link>
                 <h1 className="text-3xl font-bold mb-2">Register New Asset</h1>
-                <p className="text-slate-500 mb-2">Submit a physical asset for verifier review. After approval, it will be minted as a Human-Locked NFT.</p>
-
-                <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-8">
-                    <span className="text-blue-600 mt-0.5">ℹ️</span>
-                    <p className="text-blue-700 text-sm">
-                        You set the <span className="font-semibold">reserve price</span>, <span className="font-semibold">required deposit</span>, and <span className="font-semibold">auction duration</span> now. Bidders will submit encrypted sealed bids — you cannot see bid amounts during the auction.
-                    </p>
-                </div>
+                <p className="text-slate-500 mb-8">Submit a physical asset for verifier review. After approval, it will be minted as a Human-Locked NFT.</p>
 
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-6 text-red-700 text-sm">
@@ -184,61 +184,6 @@ export default function RegisterAssetPage() {
                                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
                             />
                         </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Reserve Price (USDC) *</label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    required
-                                    min="1"
-                                    step="1"
-                                    value={form.reservePrice}
-                                    onChange={e => setForm(f => ({ ...f, reservePrice: e.target.value }))}
-                                    placeholder="0"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 pr-20 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
-                                />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">USDC</span>
-                            </div>
-                            <p className="text-slate-400 text-xs mt-1.5">Minimum bid required. Bids below this are rejected by Chainlink CRE.</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Required Deposit (USDC) *</label>
-                            <div className="relative">
-                                <input
-                                    type="number"
-                                    required
-                                    min="1"
-                                    step="1"
-                                    value={form.requiredDeposit}
-                                    onChange={e => setForm(f => ({ ...f, requiredDeposit: e.target.value }))}
-                                    placeholder="0"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 pr-20 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
-                                />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">USDC</span>
-                            </div>
-                            <p className="text-slate-400 text-xs mt-1.5">Fixed amount every bidder must deposit. Recommended: 5–10% of reserve price.</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Auction Duration *</label>
-                            <select
-                                required
-                                value={form.auctionDuration}
-                                onChange={e => setForm(f => ({ ...f, auctionDuration: e.target.value }))}
-                                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-900 focus:outline-none focus:border-blue-500 transition-colors"
-                            >
-                                <option value="24">24 hours</option>
-                                <option value="48">48 hours</option>
-                                <option value="72">72 hours (recommended)</option>
-                                <option value="168">7 days</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 text-xs text-slate-400 space-y-1">
-                        <p>⚠️ <span className="text-slate-600 font-medium">As the seller, you will only see the number of bids</span> — not the amounts. Chainlink CRE decrypts all bids in a secure enclave and pays you the winning USDC amount after settlement.</p>
                     </div>
 
                     <button

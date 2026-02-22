@@ -75,10 +75,6 @@ const postData = (sendRequester: HTTPSendRequester, config: Config, assetParams:
     headers: {
       "Content-Type": "application/json",
     },
-    cacheSettings: {
-      readFromCache: true,
-      maxAgeMs: 60000,
-    },
   }
 
   const resp = sendRequester.sendRequest(req).result()
