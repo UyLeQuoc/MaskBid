@@ -3,95 +3,52 @@ import { useState } from 'react'
 import { useQueryState } from 'nuqs'
 import { Suspense } from 'react'
 import BidModal from '@/components/auction/BidModal'
+import { useAuctions } from '@/hooks/useAuctions'
 
-const AUCTIONS = [
-    {
-        id: '1',
-        name: 'Rolex Submariner 2023',
-        type: 'Watch',
-        reservePrice: '2,000',
-        requiredDeposit: '200',
-        endTime: '2h 14m',
-        image: '⌚',
-        status: 'Active',
-        bidCount: 7,
-        seller: '0xAbCd...1234',
-        description: 'Rolex Submariner Date Ref. 126610LN in mint condition. Full set including box, papers, and certificate of authenticity. Verified by MaskBid verifier.',
-        startTime: 'Feb 20, 2026 10:00 UTC',
-    },
-    {
-        id: '2',
-        name: 'Oil Painting — Coastal Sunrise',
-        type: 'Art',
-        reservePrice: '500',
-        requiredDeposit: '50',
-        endTime: '5h 42m',
-        image: '🎨',
-        status: 'Active',
-        bidCount: 3,
-        seller: '0xEfGh...5678',
-        description: 'Original oil on canvas, 60x90cm. Signed by artist. Accompanied by gallery provenance certificate.',
-        startTime: 'Feb 21, 2026 08:00 UTC',
-    },
-    {
-        id: '3',
-        name: '1kg Gold Bar (LBMA Certified)',
-        type: 'Gold',
-        reservePrice: '16,000',
-        requiredDeposit: '1,600',
-        endTime: '11h 00m',
-        image: '🥇',
-        status: 'Active',
-        bidCount: 12,
-        seller: '0xIjKl...9012',
-        description: 'PAMP Suisse 1kg gold bar, 999.9 fine gold. LBMA certified with serial number and assay certificate.',
-        startTime: 'Feb 21, 2026 06:00 UTC',
-    },
-    {
-        id: '4',
-        name: 'Vintage Patek Philippe 5711',
-        type: 'Watch',
-        reservePrice: '8,000',
-        requiredDeposit: '800',
-        endTime: '1d 3h',
-        image: '⌚',
-        status: 'Active',
-        bidCount: 5,
-        seller: '0xMnOp...3456',
-        description: 'Patek Philippe Nautilus 5711 in excellent condition. Complete set with original box and papers.',
-        startTime: 'Feb 20, 2026 14:00 UTC',
-    },
-    {
-        id: '5',
-        name: 'Abstract Canvas — Blue Phase',
-        type: 'Art',
-        reservePrice: '200',
-        requiredDeposit: '20',
-        endTime: '18h 20m',
-        image: '🖼️',
-        status: 'Active',
-        bidCount: 2,
-        seller: '0xQrSt...7890',
-        description: 'Large format abstract canvas, acrylic on linen. Artist-signed verso with certificate of authenticity.',
-        startTime: 'Feb 21, 2026 09:00 UTC',
-    },
-    {
-        id: '6',
-        name: '500g Silver Bullion Bar',
-        type: 'Gold',
-        reservePrice: '700',
-        requiredDeposit: '70',
-        endTime: '3h 05m',
-        image: '🥈',
-        status: 'Active',
-        bidCount: 4,
-        seller: '0xUvWx...1234',
-        description: 'Valcambi 500g silver bar, 999 fine silver. Sealed in original packaging with assay card.',
-        startTime: 'Feb 21, 2026 11:00 UTC',
-    },
-]
+// Transform database auction to UI format
+function transformAuction(auction: import('@/hooks/useAuctions').Auction) {
+    const endsAt = new Date(auction.ends_at)
+    const now = new Date()
+    const diffMs = endsAt.getTime() - now.getTime()
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffHrs / 24)
 
-type Auction = typeof AUCTIONS[number]
+    let endTime: string
+    if (diffMs <= 0) {
+        endTime = 'Ended'
+    } else if (diffDays > 0) {
+        endTime = `${diffDays}d ${diffHrs % 24}h`
+    } else {
+        endTime = `${diffHrs}h ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))}m`
+    }
+
+    // Get asset type from asset_id (you might want to fetch this from asset_states table)
+    const assetTypes: Record<string, string> = { '1': 'Watch', '2': 'Art', '3': 'Gold' }
+    const type = assetTypes[auction.asset_id] || 'Asset'
+
+    // Map emoji based on type
+    const typeEmojis: Record<string, string> = { 'Watch': '⌚', 'Art': '🎨', 'Gold': '🥇' }
+    const image = typeEmojis[type] || '📦'
+
+    return {
+        id: auction.id,
+        name: `Asset #${auction.token_id || auction.asset_id}`, // Use asset name from asset_states in production
+        type,
+        reservePrice: auction.reserve_price?.toLocaleString() || auction.start_price.toLocaleString(),
+        requiredDeposit: auction.deposit_required?.toLocaleString() || '100',
+        endTime,
+        image,
+        status: auction.status === 'active' ? 'Active' : auction.status,
+        bidCount: auction.bid_count || 0,
+        seller: `${auction.seller_address.slice(0, 6)}...${auction.seller_address.slice(-4)}`,
+        description: `Auction for asset ${auction.asset_id}. Seller: ${auction.seller_address}. Contract ID: ${auction.contract_auction_id}`,
+        startTime: new Date(auction.started_at).toLocaleString(),
+        contractAuctionId: auction.contract_auction_id,
+        rawAuction: auction, // Keep reference for bidding
+    }
+}
+
+type Auction = ReturnType<typeof transformAuction>
 
 function AuctionCard({ auction, onSelect, onBid }: { auction: Auction; onSelect: () => void; onBid: () => void }) {
     return (
@@ -149,12 +106,25 @@ function AuctionCard({ auction, onSelect, onBid }: { auction: Auction; onSelect:
 }
 
 function AuctionList({ onSelect, onBid }: { onSelect: (id: string) => void; onBid: (auction: Auction) => void }) {
+    const { auctions, loading, error } = useAuctions()
+
+    // Transform auctions from database
+    const displayAuctions = auctions.map(transformAuction)
+
     return (
         <div className="bg-slate-50 min-h-screen text-slate-900">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                <div className="mb-6">
-                    <h1 className="text-3xl font-bold mb-2">Live Auctions</h1>
-                    <p className="text-slate-500">All bids are sealed and encrypted — only the reserve price is public.</p>
+                <div className="mb-6 flex items-start justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">Live Auctions</h1>
+                        <p className="text-slate-500">All bids are sealed and encrypted — only the reserve price is public.</p>
+                    </div>
+                    <button
+                        onClick={() => window.location.href = '/auctions/create'}
+                        className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-2xl transition-colors"
+                    >
+                        + Create Auction
+                    </button>
                 </div>
 
                 {/* Sealed bid notice */}
@@ -164,6 +134,30 @@ function AuctionList({ onSelect, onBid }: { onSelect: (id: string) => void; onBi
                         <span className="font-semibold">Dark Auction:</span> Bid amounts are encrypted with Chainlink Confidential HTTP. No one — not even the seller — can see bids until the auction ends. Winner is selected by Chainlink CRE.
                     </p>
                 </div>
+
+                {/* Loading state */}
+                {loading && (
+                    <div className="flex items-center justify-center py-20">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span className="ml-3 text-slate-500">Loading auctions...</span>
+                    </div>
+                )}
+
+                {/* Error state */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-8">
+                        <p className="text-red-700 text-sm">Error loading auctions: {error}</p>
+                        <p className="text-red-600 text-xs mt-1">Showing demo data instead.</p>
+                    </div>
+                )}
+
+                {/* Empty state */}
+                {!loading && auctions.length === 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-8 text-center">
+                        <p className="text-amber-700 text-lg font-medium">No active auctions found.</p>
+                        <p className="text-amber-600 text-sm mt-2">Check back later or create a new auction.</p>
+                    </div>
+                )}
 
                 {/* Filter bar */}
                 <div className="flex flex-wrap gap-3 mb-8">
@@ -183,7 +177,7 @@ function AuctionList({ onSelect, onBid }: { onSelect: (id: string) => void; onBi
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {AUCTIONS.map(auction => (
+                    {displayAuctions.map(auction => (
                         <AuctionCard
                             key={auction.id}
                             auction={auction}
@@ -227,6 +221,12 @@ function AuctionDetail({ auction, onBack, onBid }: { auction: Auction; onBack: (
                                     <span className="text-slate-400">Auction Started</span>
                                     <span className="text-slate-700">{auction.startTime}</span>
                                 </div>
+                                {auction.contractAuctionId && (
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-400">Contract ID</span>
+                                        <span className="font-mono text-slate-700">#{auction.contractAuctionId}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -318,8 +318,11 @@ function AuctionDetail({ auction, onBack, onBid }: { auction: Auction; onBack: (
 function AuctionsPageInner() {
     const [auctionId, setAuctionId] = useQueryState('auctionId')
     const [bidTarget, setBidTarget] = useState<Auction | null>(null)
+    const { auctions } = useAuctions()
 
-    const selected = AUCTIONS.find(a => a.id === auctionId)
+    const displayAuctions = auctions.map(transformAuction)
+
+    const selected = displayAuctions.find((a: Auction) => a.id === auctionId)
 
     return (
         <>

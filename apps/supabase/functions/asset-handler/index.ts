@@ -7,7 +7,7 @@ const STATUS_SERVER_ERROR = 500;
 
 const REQUIRED_FIELDS: Record<string, string[]> = {
   read: ["assetId"],
-  AssetRegistered: ["assetId", "issuer", "initialSupply", "assetName"],
+  AssetRegistered: ["assetId", "issuer", "assetName", "assetType", "description", "serialNumber", "reservePrice", "requiredDeposit", "auctionDuration"],
   AssetVerified: ["assetId", "isValid"],
   TokensMinted: ["assetId", "amount"],
   TokensRedeemed: ["assetId", "amount"],
@@ -48,13 +48,18 @@ const handlers: Record<
     return { data };
   },
 
-  async AssetRegistered(client, { assetId, issuer, initialSupply, assetName }) {
+  async AssetRegistered(client, { assetId, issuer, assetName, assetType, description, serialNumber, reservePrice, requiredDeposit, auctionDuration }) {
     const { error } = await client.from("asset_states").insert({
       asset_id: assetId,
       asset_name: assetName,
       issuer,
-      supply: Number(initialSupply),
-      // uid, verified, token_minted, token_redeemed use column defaults
+      supply: 0,
+      asset_type: assetType,
+      description,
+      serial_number: serialNumber,
+      reserve_price: Number(reservePrice),
+      required_deposit: Number(requiredDeposit),
+      auction_duration: Number(auctionDuration),
     });
 
     if (error) throw new Error(error.message);
@@ -91,12 +96,6 @@ const handlers: Record<
     return { message: "Token redeemed successfully", amount };
   },
 
-  /**
-   * Sends a POST notification to the provided API URL using asset UID data.
-   * Note: Requires CRE workflow deployed on mainnet for full functionality.
-   * In the demo, this action will not be used.
-   * The purpose is to show how to send a POST request back to CRE.
-   */
   async sendNotification(client, { assetId, apiUrl }) {
     const { data, error } = await client
       .from("asset_states")

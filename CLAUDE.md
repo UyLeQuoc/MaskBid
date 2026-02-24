@@ -97,11 +97,19 @@ cre workflow simulate auction-workflow --broadcast --target local-simulation
 cd apps/cre-workflow
 
 # These scripts emit events that trigger CRE workflows
-npx tsx contracts/1_deploy.ts
-npx tsx contracts/2_registerNewAsset.ts    # emits AssetRegistered
-npx tsx contracts/3_verifyAsset.ts         # emits AssetVerified
-npx tsx contracts/5_mint.ts                # emits TokensMinted
-npx tsx contracts/6_redeem.ts              # emits TokensRedeemed
+npx tsx contracts/scripts/1_deploy.ts
+npx tsx contracts/scripts/2_registerNewAsset.ts    # emits AssetRegistered
+npx tsx contracts/scripts/3_verifyAsset.ts         # emits AssetVerified
+npx tsx contracts/scripts/5_mint.ts                # emits TokensMinted
+npx tsx contracts/scripts/6_redeem.ts              # emits TokensRedeemed
+
+# Auction Contract Interactions
+npx tsx contracts/scripts/7_deployAuction.ts
+npx tsx contracts/scripts/8_createAuction.ts       # emits AuctionCreated
+npx tsx contracts/scripts/9_placeBid.ts            # emits BidPlaced (USDC escrow)
+npx tsx contracts/scripts/10_finalizeAuction.ts    # emits AuctionFinalized
+npx tsx contracts/scripts/11_claimRefund.ts        # emits BidRefunded
+npx tsx contracts/scripts/e2e_test.ts              # Full E2E test on Tenderly fork
 ```
 
 ## Architecture
@@ -165,6 +173,15 @@ Winner written on-chain
 - CRE integration via `ReceiverTemplate` pattern for metadata updates
 - Key events: `AssetRegistered`, `AssetVerified`, `TokensMinted`, `TokensRedeemed`
 
+**MaskBidAuction.sol**:
+
+- Manages confidential sealed-bid auctions for ERC-1155 RWAs
+- Automatic ERC-1155 token escrow upon `createAuction`
+- USDC token deposit escrow upon `placeBid`
+- CRE integration via `ReceiverTemplate` for solver finalization (`_processReport`)
+- Refund mechanism for losing bidders
+- Key events: `AuctionCreated`, `BidPlaced`, `AuctionFinalized`, `BidRefunded`
+
 ### Authentication
 
 **World ID + Wallet Auth:**
@@ -195,16 +212,17 @@ Winner written on-chain
 
 ## Key File Locations
 
-| Purpose                     | Path                                                     |
-| --------------------------- | -------------------------------------------------------- |
-| CRE workflow (ZK auction)   | `apps/cre-workflow/auction-workflow/main.ts`             |
-| CRE project config          | `apps/cre-workflow/project.yaml`                         |
-| Solver Edge Function        | `apps/supabase/functions/solver/index.ts`                |
-| Asset handler Edge Function | `apps/supabase/functions/asset-handler/index.ts`         |
-| Database migrations         | `apps/supabase/migrations/`                              |
-| Smart contract              | `apps/cre-workflow/contracts/TokenizedAssetPlatform.sol` |
-| World ID auth               | `apps/bidder-app/src/auth/index.ts`                      |
-| Setup guide                 | `docs/HOW_TO_RUN.md`, `docs/SETUP_ZK_AUCTION.md`         |
+| Purpose                     | Path                                                         |
+| --------------------------- | ------------------------------------------------------------ |
+| CRE workflow (ZK auction)   | `apps/cre-workflow/auction-workflow/main.ts`                 |
+| CRE project config          | `apps/cre-workflow/project.yaml`                             |
+| Solver Edge Function        | `apps/supabase/functions/solver/index.ts`                    |
+| Asset handler Edge Function | `apps/supabase/functions/asset-handler/index.ts`             |
+| Database migrations         | `apps/supabase/migrations/`                                  |
+| RWA Smart Contract          | `apps/cre-workflow/contracts/src/TokenizedAssetPlatform.sol` |
+| Auction Smart Contract      | `apps/cre-workflow/contracts/src/MaskBidAuction.sol`         |
+| World ID auth               | `apps/bidder-app/src/auth/index.ts`                          |
+| Setup guide                 | `docs/HOW_TO_RUN.md`, `docs/SETUP_ZK_AUCTION.md`             |
 
 ## Environment Setup
 

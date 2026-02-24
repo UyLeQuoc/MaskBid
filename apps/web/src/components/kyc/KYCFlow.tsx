@@ -11,7 +11,7 @@ import { StepIndicator } from './StepIndicator'
 
 const APP_ID = (env.NEXT_PUBLIC_APP_ID || 'app_staging_b2602675085f2b2c08b0ea7c819802fe') as `app_${string}`
 const ACTION = env.NEXT_PUBLIC_ACTION
-const CONTRACT_ADDRESS = env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`
+const CONTRACT_ADDRESS = env.NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = env.NEXT_PUBLIC_RPC_URL
 const EXPLORER_URL = env.NEXT_PUBLIC_EXPLORER_URL
 
@@ -33,6 +33,7 @@ type FlowState =
     | 'needs_verification'
     | 'verifying'
     | 'submitting'
+    | 'bypassing'
     | 'done'
     | 'error'
 
@@ -45,6 +46,7 @@ export function KYCFlow() {
     const [flowState, setFlowState] = useState<FlowState>('idle')
     const [txHash, setTxHash] = useState<string | null>(null)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
+    const [worldIdFailed, setWorldIdFailed] = useState(false)
     const isDisconnecting = useRef(false)
 
     const checkKYCStatus = useCallback(async (address: string) => {
@@ -94,6 +96,7 @@ export function KYCFlow() {
     const handleVerify = async (proof: ISuccessResult) => {
         if (!account) return
         setFlowState('submitting')
+        setWorldIdFailed(false)
         try {
             const res = await fetch('/api/verify', {
                 method: 'POST',
@@ -102,7 +105,9 @@ export function KYCFlow() {
             })
             const data = await res.json()
             if (!res.ok || !data.success) {
-                throw new Error(data.error?.detail || data.error || 'Verification failed')
+                if (data.worldIdFailed) setWorldIdFailed(true)
+                const errDetail = data.error?.detail || data.error?.code || (typeof data.error === 'string' ? data.error : null)
+                throw new Error(errDetail || 'Verification failed')
             }
             setTxHash(data.txHash)
 
@@ -128,6 +133,43 @@ export function KYCFlow() {
         }
     }
 
+    const handleBypass = async () => {
+        if (!account) return
+        setFlowState('bypassing')
+        setWorldIdFailed(false)
+        try {
+            const res = await fetch('/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bypass: true, wallet_address: account }),
+            })
+            const data = await res.json()
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Bypass failed')
+            }
+            setTxHash(data.txHash)
+
+            const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC_URL) })
+            const addr = account as `0x${string}`
+            let confirmed = false
+            for (let i = 0; i < 30; i++) {
+                await new Promise(r => setTimeout(r, 2000))
+                const verified = await publicClient.readContract({
+                    address: CONTRACT_ADDRESS,
+                    abi: KYC_READ_ABI,
+                    functionName: 'isKYCVerified',
+                    args: [addr],
+                })
+                if (verified) { confirmed = true; break }
+            }
+            if (!confirmed) throw new Error('Transaction submitted but on-chain confirmation timed out.')
+            setFlowState('done')
+        } catch (e: unknown) {
+            setErrorMsg(e instanceof Error ? e.message : 'Bypass failed')
+            setFlowState('error')
+        }
+    }
+
     const handleDisconnect = () => {
         isDisconnecting.current = true
         sdk?.disconnect()
@@ -138,6 +180,7 @@ export function KYCFlow() {
 
     const handleRetry = () => {
         setErrorMsg(null)
+        setWorldIdFailed(false)
         if (connected && account) {
             checkKYCStatus(account)
         } else {
@@ -273,6 +316,16 @@ export function KYCFlow() {
                         </div>
                     )}
 
+                    {flowState === 'bypassing' && (
+                        <div className="text-center">
+                            <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Spinner className="w-10 h-10 text-amber-600" />
+                            </div>
+                            <h2 className="text-xl font-semibold text-slate-900 mb-2">Bypassing — Setting KYC On-Chain</h2>
+                            <p className="text-amber-600 text-sm">Skipping World ID for testing. Waiting for on-chain confirmation...</p>
+                        </div>
+                    )}
+
                     {flowState === 'done' && (
                         <div className="text-center">
                             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
@@ -308,14 +361,27 @@ export function KYCFlow() {
                                 </svg>
                             </div>
                             <h2 className="text-xl font-semibold text-slate-900 mb-2">Verification Failed</h2>
-                            <p className="text-red-600 text-sm mb-6">{errorMsg || 'An unexpected error occurred.'}</p>
+                            {errorMsg && (
+                                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-left">
+                                    <p className="text-red-700 text-xs font-mono break-all">{errorMsg}</p>
+                                </div>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleRetry}
-                                className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-6 rounded-2xl transition-all"
+                                className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-6 rounded-2xl transition-all mb-3"
                             >
                                 Try Again
                             </button>
+                            {worldIdFailed && (
+                                <button
+                                    type="button"
+                                    onClick={handleBypass}
+                                    className="w-full bg-amber-500 hover:bg-amber-400 text-white font-semibold py-3 px-6 rounded-2xl transition-all text-sm"
+                                >
+                                    Skip World ID (Testing Only)
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

@@ -25,10 +25,12 @@
 	"workspaces": [
 		"apps/*",
 		"apps/cre-workflow/asset-log-trigger-workflow",
-		"apps/cre-workflow/contracts",
+		"apps/cre-workflow/auction-workflow",
+		"apps/cre-workflow/auction-log-trigger-workflow",
 		"packages/*"
 	],
 	"dependencies": {
-		"@chainlink/cre-sdk-javy-plugin": "^1.0.9"
+		"@chainlink/cre-sdk-javy-plugin": "^1.0.9",
+		"ethers": "^6.16.0"
 	}
 }

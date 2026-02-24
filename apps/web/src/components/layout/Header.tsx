@@ -6,7 +6,7 @@ import { createPublicClient, http } from 'viem'
 import { sepolia } from 'viem/chains'
 import { env } from '@/configs/env'
 
-const CONTRACT_ADDRESS = env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`
+const CONTRACT_ADDRESS = env.NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = env.NEXT_PUBLIC_RPC_URL
 
 const KYC_READ_ABI = [
@@ -93,6 +93,9 @@ export function Header() {
                                 </Link>
                                 <Link href="/my-bids" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
                                     My Bids
+                                </Link>
+                                <Link href="/verifier" className="text-slate-700 hover:text-slate-900 text-sm transition-colors">
+                                    Verifier
                                 </Link>
                             </>
                         )}

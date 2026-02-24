@@ -6,6 +6,7 @@ type FlowState =
     | 'needs_verification'
     | 'verifying'
     | 'submitting'
+    | 'bypassing'
     | 'done'
     | 'error'
 
