@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSDK } from '@metamask/sdk-react'
 import { useQueryState } from 'nuqs'
 import { Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import { createWalletClient, createPublicClient, custom, http, parseAbi } from 'viem'
 import { sepolia } from 'viem/chains'
 import { env } from '@/configs/env'
@@ -140,6 +141,7 @@ function AssetList({ assets, loading, onSelect }: { assets: AssetState[], loadin
 
 function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void }) {
     const { account } = useSDK()
+    const router = useRouter()
     const [redeeming, setRedeeming] = useState(false)
     const [redeemConfirming, setRedeemConfirming] = useState(false)
     const [redeemTxHash, setRedeemTxHash] = useState<string | null>(null)
@@ -212,12 +214,9 @@ function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void 
 
                         <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 text-sm mb-4">
                             {[
+                                { label: 'Status', value: status },
                                 { label: 'Type', value: asset.asset_type },
                                 { label: 'Serial / Certificate', value: asset.serial_number },
-                                { label: 'Reserve Price', value: asset.reserve_price != null ? `${asset.reserve_price} USDC` : null },
-                                { label: 'Required Deposit', value: asset.required_deposit != null ? `${asset.required_deposit} USDC` : null },
-                                { label: 'Auction Duration', value: asset.auction_duration != null ? `${asset.auction_duration}h` : null },
-                                { label: 'Status', value: status },
                                 { label: 'On-chain ID', value: `#${asset.asset_id}` },
                             ].filter(r => r.value).map(row => (
                                 <div key={row.label} className="flex justify-between px-4 py-3">
@@ -233,10 +232,10 @@ function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void 
                             </div>
                         )}
 
-                        {status === 'Verified' && (
+                        {(status === 'Verified' || status === 'Minted') && (
                             <button
                                 type="button"
-                                onClick={() => console.log('Create auction — coming soon')}
+                                onClick={() => router.push(`/auctions/create?assetId=${asset.asset_id}`)}
                                 className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
                             >
                                 Create Auction

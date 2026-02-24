@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useSDK } from '@metamask/sdk-react'
+import { useRouter } from 'next/navigation'
 import { createWalletClient, createPublicClient, custom, http, parseAbi, toEventSelector } from 'viem'
 import { sepolia } from 'viem/chains'
 import { env } from '@/configs/env'
@@ -37,6 +38,7 @@ type VerifyResult = {
 
 export default function VerifierPage() {
     const { account } = useSDK()
+    const router = useRouter()
     const [pending, setPending] = useState<AssetState[]>([])
     const [verified, setVerified] = useState<AssetState[]>([])
     const [loading, setLoading] = useState(true)
@@ -123,7 +125,7 @@ export default function VerifierPage() {
                         <CRECommandBox
                             txHash={result.txHash}
                             steps={[{ label: 'AssetVerified', eventIndex: result.eventIndex }]}
-                            onDone={() => setResult(null)}
+                            onDone={() => { setResult(null); router.push('/verifier') }}
                         />
                     </div>
                 )}

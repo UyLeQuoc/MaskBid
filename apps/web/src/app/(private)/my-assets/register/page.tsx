@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useSDK } from '@metamask/sdk-react'
+import { useRouter } from 'next/navigation'
 import { createWalletClient, createPublicClient, custom, http, parseAbi, toEventSelector } from 'viem'
 import { sepolia } from 'viem/chains'
 import { env } from '@/configs/env'
@@ -26,6 +27,7 @@ function autoSymbol(name: string, type: string): string {
 
 export default function RegisterAssetPage() {
     const { account } = useSDK()
+    const router = useRouter()
     const [form, setForm] = useState({
         name: '',
         type: '',
@@ -103,7 +105,7 @@ export default function RegisterAssetPage() {
                     <CRECommandBox
                         txHash={txHash}
                         steps={[{ label: 'AssetRegistered', eventIndex }]}
-                        onDone={() => { window.location.href = '/my-assets' }}
+                        onDone={() => router.push('/my-assets')}
                     />
 
                     <div className="mt-6 text-center">
