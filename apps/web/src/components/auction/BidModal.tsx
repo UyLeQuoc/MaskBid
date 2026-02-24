@@ -1,7 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { BrowserProvider, Contract } from 'ethers'
+import { USDCABI } from '@/abis/USDC'
+import { MaskBidAuctionABI } from '@/abis/MaskBidAuction'
+import { env } from '@/configs/env'
+import { encryptBid, generateBidHash } from '@/lib/crypto'
 
-type Step = 'gate' | 'deposit' | 'bid' | 'success'
+type Step = 'connect' | 'approve' | 'deposit' | 'bid' | 'submitting' | 'success' | 'error'
 
 interface BidModalProps {
     auction: {
@@ -10,53 +15,176 @@ interface BidModalProps {
         reservePrice: string
         requiredDeposit: string
         endTime: string
+        contractAuctionId?: number | null
     }
     onClose: () => void
+    onSuccess?: () => void
 }
 
-// Mock auth state — in production this comes from wallet/KYC context
-const MOCK_WALLET_CONNECTED = true
-const MOCK_KYC_VERIFIED = true
-
-export default function BidModal({ auction, onClose }: BidModalProps) {
-    const [step, setStep] = useState<Step>(() => {
-        if (!MOCK_WALLET_CONNECTED) return 'gate'
-        if (!MOCK_KYC_VERIFIED) return 'gate'
-        return 'deposit'
-    })
+export default function BidModal({ auction, onClose, onSuccess }: BidModalProps) {
+    const [step, setStep] = useState<Step>('connect')
+    const [error, setError] = useState<string | null>(null)
+    const [txHash, setTxHash] = useState<string | null>(null)
+    const [walletAddress, setWalletAddress] = useState<string | null>(null)
     const [bidAmount, setBidAmount] = useState('')
-    const [depositLoading, setDepositLoading] = useState(false)
-    const [bidLoading, setBidLoading] = useState(false)
+    const [isApproved, setIsApproved] = useState(false)
 
     const reserveNum = Number(auction.reservePrice.replace(/,/g, ''))
+    const depositNum = Number(auction.requiredDeposit.replace(/,/g, ''))
 
-    function handleDeposit() {
-        setDepositLoading(true)
-        setTimeout(() => {
-            setDepositLoading(false)
-            setStep('bid')
-        }, 1500)
+    const auctionContractAddress = env.NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS
+    const usdcAddress = env.NEXT_PUBLIC_USDC_ADDRESS
+
+    // Check if wallet is already connected on mount
+    useEffect(() => {
+        checkConnection()
+    }, [])
+
+    const checkConnection = async () => {
+        if (typeof window === 'undefined' || !(window as any).ethereum) return
+
+        try {
+            const provider = new BrowserProvider((window as any).ethereum)
+            const accounts = await provider.listAccounts()
+            if (accounts.length > 0) {
+                setWalletAddress(accounts[0].address)
+                setStep('approve')
+            }
+        } catch {
+            // Not connected
+        }
     }
 
-    function handleBid() {
-        if (!bidAmount || Number(bidAmount) < reserveNum) return
-        setBidLoading(true)
-        setTimeout(() => {
-            setBidLoading(false)
+    const connectWallet = async () => {
+        if (typeof window === 'undefined' || !(window as any).ethereum) {
+            setError('MetaMask not installed')
+            return
+        }
+
+        try {
+            const provider = new BrowserProvider((window as any).ethereum)
+            await provider.send('eth_requestAccounts', [])
+            const signer = await provider.getSigner()
+            const address = await signer.getAddress()
+            setWalletAddress(address)
+            setStep('approve')
+            setError(null)
+        } catch (err) {
+            setError('Failed to connect wallet: ' + (err as Error).message)
+        }
+    }
+
+    const approveUSDC = async () => {
+        if (!walletAddress || !auctionContractAddress) return
+
+        setStep('deposit')
+        setError(null)
+
+        try {
+            const provider = new BrowserProvider((window as any).ethereum)
+            const signer = await provider.getSigner()
+            const usdcContract = new Contract(usdcAddress, USDCABI, signer)
+
+            // Convert deposit to USDC units (6 decimals)
+            const depositUnits = BigInt(Math.floor(depositNum * 1e6))
+
+            const tx = await usdcContract.approve(auctionContractAddress, depositUnits)
+            const receipt = await tx.wait()
+
+            setTxHash(receipt.hash)
+            setIsApproved(true)
+            setStep('bid')
+        } catch (err) {
+            setError('Failed to approve USDC: ' + (err as Error).message)
+            setStep('error')
+        }
+    }
+
+    const placeBid = async () => {
+        if (!walletAddress || !bidAmount || !auction.contractAuctionId) {
+            setError('Missing required information')
+            return
+        }
+
+        setStep('submitting')
+        setError(null)
+
+        try {
+            // Step 1: Encrypt the bid
+            const { encryptedData, hash } = await encryptBid(Number(bidAmount), walletAddress)
+
+            // Step 2: Generate bid hash for on-chain
+            const bidHash = await generateBidHash(
+                BigInt(auction.contractAuctionId),
+                walletAddress,
+                encryptedData
+            )
+
+            // Step 3: Place bid on-chain
+            const provider = new BrowserProvider((window as any).ethereum)
+            const signer = await provider.getSigner()
+            const auctionContract = new Contract(auctionContractAddress!, MaskBidAuctionABI, signer)
+
+            const tx = await auctionContract.placeBid(
+                BigInt(auction.contractAuctionId),
+                bidHash
+            )
+            const receipt = await tx.wait()
+
+            // Step 4: Store encrypted bid to Supabase (via API)
+            await storeEncryptedBid(
+                auction.id,
+                encryptedData,
+                hash,
+                walletAddress,
+                receipt.hash
+            )
+
+            setTxHash(receipt.hash)
             setStep('success')
-        }, 1800)
+            onSuccess?.()
+        } catch (err) {
+            setError('Failed to place bid: ' + (err as Error).message)
+            setStep('error')
+        }
+    }
+
+    const storeEncryptedBid = async (
+        auctionId: string,
+        encryptedData: string,
+        hash: string,
+        bidder: string,
+        escrowTxHash: string
+    ) => {
+        try {
+            const response = await fetch('/api/bids', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    auctionId,
+                    encryptedData,
+                    hash,
+                    bidder,
+                    escrowTxHash,
+                }),
+            })
+
+            if (!response.ok) {
+                console.error('Failed to store bid in database')
+            }
+        } catch (err) {
+            console.error('Error storing bid:', err)
+        }
     }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop — keep black overlay as specified */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                onClick={step === 'success' ? onClose : undefined}
+                onClick={step === 'success' || step === 'error' ? onClose : undefined}
             />
 
-            {/* Modal */}
-            <div className="relative bg-white border border-slate-200 rounded-3xl w-full max-w-md shadow-2xl">
+            <div className="relative bg-white border border-slate-200 rounded-3xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-200">
                     <div>
@@ -74,15 +202,15 @@ export default function BidModal({ auction, onClose }: BidModalProps) {
 
                 {/* Step indicators */}
                 <div className="flex items-center gap-0 px-6 pt-4 pb-2">
-                    {(['deposit', 'bid', 'success'] as const).map((s, i) => {
-                        const labels = ['Deposit', 'Bid', 'Confirm']
-                        const order = ['deposit', 'bid', 'success']
+                    {(['approve', 'deposit', 'bid', 'success'] as const).map((s, i) => {
+                        const labels = ['Approve', 'Deposit', 'Bid', 'Done']
+                        const order = ['approve', 'deposit', 'bid', 'submitting', 'success']
                         const currentIdx = order.indexOf(step)
-                        const isActive = step === s
-                        const isDone = currentIdx > i
+                        const isActive = step === s || (s === 'bid' && step === 'submitting')
+                        const isDone = currentIdx > order.indexOf(s)
                         return (
                             <div key={s} className="flex items-center flex-1">
-                                <div className={`flex items-center gap-1.5 ${i < 2 ? 'flex-1' : ''}`}>
+                                <div className={`flex items-center gap-1.5 ${i < 3 ? 'flex-1' : ''}`}>
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                                         isDone ? 'bg-green-500 text-white' : isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
                                     }`}>
@@ -91,7 +219,7 @@ export default function BidModal({ auction, onClose }: BidModalProps) {
                                     <span className={`text-xs ${isActive ? 'text-slate-900' : isDone ? 'text-green-600' : 'text-slate-400'}`}>
                                         {labels[i]}
                                     </span>
-                                    {i < 2 && <div className="flex-1 h-px bg-slate-200 mx-2" />}
+                                    {i < 3 && <div className="flex-1 h-px bg-slate-200 mx-2" />}
                                 </div>
                             </div>
                         )
@@ -99,79 +227,58 @@ export default function BidModal({ auction, onClose }: BidModalProps) {
                 </div>
 
                 <div className="px-6 pb-6 pt-4">
-                    {/* GATE step */}
-                    {step === 'gate' && (
-                        <div className="text-center py-4 space-y-4">
-                            {!MOCK_WALLET_CONNECTED ? (
-                                <>
-                                    <div className="text-4xl mb-2">🔗</div>
-                                    <h3 className="text-slate-900 font-semibold text-lg">Connect your wallet</h3>
-                                    <p className="text-slate-500 text-sm">You need a connected wallet to place bids.</p>
-                                    <button
-                                        type="button"
-                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
-                                    >
-                                        Connect Wallet
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="text-4xl mb-2">🪪</div>
-                                    <h3 className="text-slate-900 font-semibold text-lg">KYC Required</h3>
-                                    <p className="text-slate-500 text-sm">You must complete identity verification before bidding.</p>
-                                    <a
-                                        href="/dashboard"
-                                        className="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
-                                    >
-                                        Go to Dashboard to Verify
-                                    </a>
-                                </>
-                            )}
+                    {/* Error display */}
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                            <p className="text-red-700 text-sm">{error}</p>
                         </div>
                     )}
 
-                    {/* DEPOSIT step */}
-                    {step === 'deposit' && (
+                    {/* CONNECT step */}
+                    {step === 'connect' && (
+                        <div className="text-center py-4 space-y-4">
+                            <div className="text-4xl mb-2">🔗</div>
+                            <h3 className="text-slate-900 font-semibold text-lg">Connect your wallet</h3>
+                            <p className="text-slate-500 text-sm">Connect your MetaMask wallet to place bids.</p>
+                            <button
+                                type="button"
+                                onClick={connectWallet}
+                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
+                            >
+                                Connect MetaMask
+                            </button>
+                        </div>
+                    )}
+
+                    {/* APPROVE step */}
+                    {step === 'approve' && (
                         <div className="space-y-4">
                             <div>
-                                <h3 className="text-slate-900 font-semibold text-lg mb-1">Participation Deposit</h3>
-                                <p className="text-slate-500 text-sm">Every bidder must deposit a fixed security amount to enter this auction.</p>
+                                <h3 className="text-slate-900 font-semibold text-lg mb-1">Approve USDC</h3>
+                                <p className="text-slate-500 text-sm">Approve the auction contract to spend {auction.requiredDeposit} USDC as your deposit.</p>
                             </div>
 
-                            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5 text-sm">
-                                <div className="flex items-start gap-2 text-slate-600">
-                                    <span className="text-orange-500 shrink-0 mt-0.5">→</span>
-                                    <span>If you don&apos;t win, you can claim this back after settlement.</span>
-                                </div>
-                                <div className="flex items-start gap-2 text-slate-600">
-                                    <span className="text-orange-500 shrink-0 mt-0.5">→</span>
-                                    <span>If you win, this deposit is held as insurance for the seller.</span>
-                                </div>
-                            </div>
-
-                            {/* Amount box */}
                             <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-4 flex items-center justify-between">
                                 <span className="text-blue-700 text-sm font-medium">Deposit Amount</span>
                                 <span className="text-slate-900 font-bold text-lg">{auction.requiredDeposit} <span className="text-slate-500 text-sm font-normal">USDC</span></span>
                             </div>
-                            <p className="text-slate-400 text-xs -mt-2">Fixed for all bidders. Non-refundable only if you win.</p>
 
                             <button
                                 type="button"
-                                onClick={handleDeposit}
-                                disabled={depositLoading}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2"
+                                onClick={approveUSDC}
+                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
                             >
-                                {depositLoading ? (
-                                    <>
-                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                                        </svg>
-                                        Depositing...
-                                    </>
-                                ) : 'Approve & Deposit'}
+                                Approve USDC
                             </button>
+                        </div>
+                    )}
+
+                    {/* DEPOSIT step - loading */}
+                    {step === 'deposit' && (
+                        <div className="text-center py-8 space-y-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                            <h3 className="text-slate-900 font-semibold">Approving USDC...</h3>
+                            <p className="text-slate-500 text-sm">Please confirm the transaction in MetaMask.</p>
                         </div>
                     )}
 
@@ -182,10 +289,9 @@ export default function BidModal({ auction, onClose }: BidModalProps) {
                                 <h3 className="text-slate-900 font-semibold text-lg mb-1">Your Sealed Bid</h3>
                             </div>
 
-                            {/* Deposit confirmed */}
                             <div className="flex items-center gap-2 bg-green-100 border border-green-200 rounded-2xl px-4 py-3 text-sm">
                                 <span className="text-green-600">✅</span>
-                                <span className="text-green-600">Deposit locked: <span className="font-semibold">{auction.requiredDeposit} USDC</span></span>
+                                <span className="text-green-600">Deposit approved: <span className="font-semibold">{auction.requiredDeposit} USDC</span></span>
                             </div>
 
                             <p className="text-slate-500 text-sm">Enter the amount you&apos;re willing to pay if you win. This is your actual bid.</p>
@@ -206,28 +312,28 @@ export default function BidModal({ auction, onClose }: BidModalProps) {
                                 <p className="text-slate-400 text-xs mt-1.5">Minimum: {auction.reservePrice} USDC</p>
                             </div>
 
-                            {/* Chainlink info */}
                             <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 flex items-start gap-2.5 text-xs text-slate-500">
                                 <span className="text-blue-600 shrink-0 mt-0.5">🔒</span>
-                                <span>Your bid will be encrypted with Chainlink&apos;s public key. No one — not even the seller — can read it until CRE reveals the winner.</span>
+                                <span>Your bid will be encrypted with RSA before submission. Only the Chainlink CRE enclave can decrypt it.</span>
                             </div>
 
                             <button
                                 type="button"
-                                onClick={handleBid}
-                                disabled={bidLoading || !bidAmount || Number(bidAmount) < reserveNum}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2"
+                                onClick={placeBid}
+                                disabled={!bidAmount || Number(bidAmount) < reserveNum}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-2xl transition-colors"
                             >
-                                {bidLoading ? (
-                                    <>
-                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                                        </svg>
-                                        Encrypting & submitting...
-                                    </>
-                                ) : 'Confirm Sealed Bid'}
+                                Confirm Sealed Bid
                             </button>
+                        </div>
+                    )}
+
+                    {/* SUBMITTING step */}
+                    {step === 'submitting' && (
+                        <div className="text-center py-8 space-y-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                            <h3 className="text-slate-900 font-semibold">Encrypting & Submitting...</h3>
+                            <p className="text-slate-500 text-sm">Your bid is being encrypted and submitted on-chain.</p>
                         </div>
                     )}
 
@@ -235,7 +341,7 @@ export default function BidModal({ auction, onClose }: BidModalProps) {
                     {step === 'success' && (
                         <div className="text-center py-2 space-y-4">
                             <div className="text-5xl">✅</div>
-                            <h3 className="text-slate-900 font-bold text-xl">Bid Submitted</h3>
+                            <h3 className="text-slate-900 font-bold text-xl">Bid Submitted!</h3>
 
                             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 text-sm text-left">
                                 <div className="flex items-center justify-between">
@@ -246,20 +352,41 @@ export default function BidModal({ auction, onClose }: BidModalProps) {
                                     <span className="text-slate-500">Bid sealed</span>
                                     <span className="text-slate-700 flex items-center gap-1.5">🔒 Encrypted</span>
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-slate-500">Results after</span>
-                                    <span className="text-orange-500 font-medium">{auction.endTime}</span>
-                                </div>
                             </div>
 
-                            <p className="text-slate-400 text-xs">You&apos;ll be notified when Chainlink CRE reveals the winner.</p>
+                            {txHash && (
+                                <a
+                                    href={`${env.NEXT_PUBLIC_EXPLORER_URL}/${txHash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-700 text-sm underline block"
+                                >
+                                    View on Explorer
+                                </a>
+                            )}
 
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="w-full bg-slate-100 hover:bg-slate-100 border border-slate-200 text-slate-900 font-semibold py-3 rounded-2xl transition-colors"
+                                className="w-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-900 font-semibold py-3 rounded-2xl transition-colors"
                             >
                                 Close
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ERROR step */}
+                    {step === 'error' && (
+                        <div className="text-center py-4 space-y-4">
+                            <div className="text-5xl">❌</div>
+                            <h3 className="text-slate-900 font-semibold text-lg">Something went wrong</h3>
+                            <p className="text-slate-500 text-sm">{error || 'Failed to process your bid.'}</p>
+                            <button
+                                type="button"
+                                onClick={() => setStep(isApproved ? 'bid' : 'approve')}
+                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
+                            >
+                                Try Again
                             </button>
                         </div>
                     )}
