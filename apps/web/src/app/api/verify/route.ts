@@ -6,7 +6,7 @@ import { env } from '@/configs/env'
 
 const APP_ID = env.NEXT_PUBLIC_APP_ID!
 const ACTION = env.NEXT_PUBLIC_ACTION
-const CONTRACT_ADDRESS = env.CONTRACT_ADDRESS as `0x${string}`
+const CONTRACT_ADDRESS = env.ASSET_CONTRACT_ADDRESS as `0x${string}`
 const ADMIN_PRIVATE_KEY = env.ADMIN_PRIVATE_KEY as `0x${string}`
 const RPC_URL = env.RPC_URL
 

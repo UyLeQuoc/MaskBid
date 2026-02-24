@@ -42,9 +42,9 @@ const bytecode = bytecodeRaw as `0x${string}`;
 // USDC on Sepolia (Circle official)
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
-// TokenizedAssetPlatform address - load from config
-import { loadTokenizedAssetPlatformAddr } from "../viemUtils";
-const RWA_TOKEN_ADDRESS = loadTokenizedAssetPlatformAddr();
+// MaskBidAsset address - load from config
+import { loadAssetContractAddress } from "../viemUtils";
+const RWA_TOKEN_ADDRESS = loadAssetContractAddress();
 
 // Chainlink CRE Forwarder on Eth Sepolia
 const FORWARDER_ADDRESS = "0x15fC6ae953E024d975e77382eEeC56A9101f9F88";

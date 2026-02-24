@@ -10,7 +10,7 @@
 		"mint": "bun run scripts/5_mint.ts",
 		"redeem": "bun run scripts/6_redeem.ts"
 	},
-	"dependencies": {
+	"dependencies": { 
 		"dotenv": "^17.2.3",
 		"viem": "^2.44.4"
 	},

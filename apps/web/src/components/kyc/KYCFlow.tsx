@@ -11,7 +11,7 @@ import { StepIndicator } from './StepIndicator'
 
 const APP_ID = (env.NEXT_PUBLIC_APP_ID || 'app_staging_b2602675085f2b2c08b0ea7c819802fe') as `app_${string}`
 const ACTION = env.NEXT_PUBLIC_ACTION
-const CONTRACT_ADDRESS = env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`
+const CONTRACT_ADDRESS = env.NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = env.NEXT_PUBLIC_RPC_URL
 const EXPLORER_URL = env.NEXT_PUBLIC_EXPLORER_URL
 

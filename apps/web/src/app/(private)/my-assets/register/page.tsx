@@ -7,7 +7,7 @@ import { sepolia } from 'viem/chains'
 import { env } from '@/configs/env'
 import { CRECommandBox } from '@/components/CRECommandBox'
 
-const CONTRACT_ADDRESS = env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`
+const CONTRACT_ADDRESS = env.NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = env.NEXT_PUBLIC_RPC_URL
 
 const REGISTER_ABI = parseAbi([

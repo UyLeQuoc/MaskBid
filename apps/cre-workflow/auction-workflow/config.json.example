@@ -5,7 +5,7 @@
   "owner": "0xYourWalletAddress",
   "supabaseUrl": "https://<project-ref>.supabase.co",
   "supabaseKey": "{{.supabase_service_role_key}}",
-  "auctionContractAddress": "0xYourMaskBidAuctionContractAddress",
+  "auctionContractAddress": "0x96FEbbF894C818569E32E0824c5989DE5B1031aE",
   "chainSelectorName": "ethereum-sepolia",
   "gasLimit": "500000"
 }

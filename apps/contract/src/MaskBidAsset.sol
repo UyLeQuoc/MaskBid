@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import {ReceiverTemplate} from "./interfaces/ReceiverTemplate.sol";
 
 /**
- * @title TokenizedAssetPlatform
+ * @title MaskBidAsset
  * @dev A platform for real world assets (RWA).
  *      ERC-1155 standard is used to manage multiple asset types.
  *      Asset lifecycle: Register → Verify+Mint → Redeem
@@ -16,7 +16,7 @@ import {ReceiverTemplate} from "./interfaces/ReceiverTemplate.sol";
  *      verifyAndMint: admin-only, verifies and mints 1 RWA NFT to the issuer in one tx
  *      redeem:        token holders (including issuer) burn their token
  */
-contract TokenizedAssetPlatform is ERC1155, AccessControl, ERC1155Burnable, ReceiverTemplate {
+contract MaskBidAsset is ERC1155, AccessControl, ERC1155Burnable, ReceiverTemplate {
     using Strings for uint256;
 
     bytes32 public constant ISSUER_ROLE = keccak256("ISSUER_ROLE");

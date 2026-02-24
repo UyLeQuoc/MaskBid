@@ -74,9 +74,9 @@ async function main() {
   console.log(`   RPC:      ${rpcUrl.slice(0, 50)}...`);
 
   // 1. Deploy RWA Contract
-  console.log("\n📦 Deploying TokenizedAssetPlatform (RWA)...");
-  const rwaAbi = loadAbi("TokenizedAssetPlatform");
-  const rwaBytecode = loadBytecode("TokenizedAssetPlatform");
+  console.log("\n📦 Deploying MaskBidAsset (RWA)...");
+  const rwaAbi = loadAbi("MaskBidAsset");
+  const rwaBytecode = loadBytecode("MaskBidAsset");
 
   const rwaHash = await walletClient.deployContract({
     abi: rwaAbi,

@@ -18,11 +18,11 @@ export function loadPrivateKeyAndAccount() {
 	return { account, privateKey };
 }
 
-export function loadContractAddress(): `0x${string}` {
-	const addr = process.env.CONTRACT_ADDRESS;
+export function loadAssetContractAddress(): `0x${string}` {
+	const addr = process.env.ASSET_CONTRACT_ADDRESS;
 	if (!addr || !addr.startsWith("0x") || addr.length !== 42) {
 		throw new Error(
-			"CONTRACT_ADDRESS not found or invalid in .env\n" +
+			"ASSET_CONTRACT_ADDRESS not found or invalid in .env\n" +
 				"Run 'bun run deploy' to deploy the contract first.",
 		);
 	}

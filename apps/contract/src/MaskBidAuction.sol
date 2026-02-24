@@ -44,7 +44,7 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
     // STATE
     // ================================================================
     IERC20 public immutable usdc;
-    IERC1155 public immutable rwaToken; // TokenizedAssetPlatform (ERC-1155)
+    IERC1155 public immutable rwaToken; // MaskBidAsset (ERC-1155)
 
     enum AuctionState { Created, Active, Ended, Finalized, Cancelled }
 
@@ -124,7 +124,7 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
     // ================================================================
     /**
      * @param _usdc USDC token address (6 decimals)
-     * @param _rwaToken TokenizedAssetPlatform (ERC-1155) address
+     * @param _rwaToken MaskBidAsset (ERC-1155) address
      * @param _forwarderAddr Chainlink CRE forwarder address
      */
     constructor(
