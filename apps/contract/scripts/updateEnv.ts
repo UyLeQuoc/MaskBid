@@ -91,70 +91,87 @@ function updateEnvFile(filePath: string, updates: Record<string, string>) {
   }
 
   fs.writeFileSync(filePath, updatedLines.join("\n"), "utf8");
-  console.log(`Updated env file: ${filePath}`);
+  console.log(`  ✅ ${path.relative(process.cwd(), filePath)}`);
 }
 
-function updateJsonConfig(filePath: string, updater: (obj: any) => void) {
-  if (!fs.existsSync(filePath)) return;
+function updateJsonConfig(filePath: string, updater: (obj: Record<string, unknown>) => void) {
+  if (!fs.existsSync(filePath)) {
+    console.log(`  ⚠️  skipped (not found): ${path.relative(process.cwd(), filePath)}`);
+    return;
+  }
   const raw = fs.readFileSync(filePath, "utf8");
-  const obj = JSON.parse(raw);
+  const obj = JSON.parse(raw) as Record<string, unknown>;
   updater(obj);
-  fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), "utf8");
-  console.log(`Updated JSON config: ${filePath}`);
+  fs.writeFileSync(filePath, `${JSON.stringify(obj, null, 2)}\n`, "utf8");
+  console.log(`  ✅ ${path.relative(process.cwd(), filePath)}`);
 }
 
 function main() {
   const { assetAddress, auctionAddress } = readBroadcast();
+  console.log(`\n🔍 Addresses from broadcast:`);
+  console.log(`   MaskBidAsset:   ${assetAddress}`);
+  console.log(`   MaskBidAuction: ${auctionAddress}`);
 
   const scriptsRoot = __dirname;
   const contractRoot = path.resolve(scriptsRoot, "..");
   const repoRoot = path.resolve(contractRoot, "..", "..");
+  const creRoot = path.join(repoRoot, "apps/cre-workflow");
 
-  // Contract envs
+  // ── Contract envs ──────────────────────────────────────────────────────────
+  console.log("\n📄 Contract envs:");
   updateEnvFile(path.join(contractRoot, ".env"), {
     ASSET_CONTRACT_ADDRESS: assetAddress,
     AUCTION_CONTRACT_ADDRESS: auctionAddress,
   });
-
   updateEnvFile(path.join(contractRoot, ".env.example"), {
     ASSET_CONTRACT_ADDRESS: assetAddress,
     AUCTION_CONTRACT_ADDRESS: auctionAddress,
   });
 
-  // Web envs
+  // ── Web envs ───────────────────────────────────────────────────────────────
+  console.log("\n🌐 Web envs:");
   updateEnvFile(path.join(repoRoot, "apps/web/.env"), {
     NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS: assetAddress,
     NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS: auctionAddress,
-    ASSET_CONTRACT_ADDRESS: assetAddress
+    ASSET_CONTRACT_ADDRESS: assetAddress,
   });
-
   updateEnvFile(path.join(repoRoot, "apps/web/.env.example"), {
     NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS: assetAddress,
     NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS: auctionAddress,
-    ASSET_CONTRACT_ADDRESS: assetAddress
+    ASSET_CONTRACT_ADDRESS: assetAddress,
   });
 
-  // CRE workflow configs
-  const assetConfigPath = path.join(
-    repoRoot,
-    "apps/cre-workflow/asset-log-trigger-workflow/config.json",
-  );
-  updateJsonConfig(assetConfigPath, (obj) => {
-    if (Array.isArray(obj.evms) && obj.evms.length > 0) {
-      obj.evms[0].assetAddress = assetAddress;
+  // ── asset-log-trigger-workflow ─────────────────────────────────────────────
+  console.log("\n⚙️  asset-log-trigger-workflow:");
+  const assetEvm = (obj: Record<string, unknown>) => {
+    const evms = obj.evms as Record<string, unknown>[] | undefined;
+    if (Array.isArray(evms) && evms.length > 0) {
+      evms[0].assetAddress = assetAddress;
     }
-  });
+  };
+  updateJsonConfig(path.join(creRoot, "asset-log-trigger-workflow/config.json"), assetEvm);
+  updateJsonConfig(path.join(creRoot, "asset-log-trigger-workflow/config.json.example"), assetEvm);
 
-  const auctionConfigPath = path.join(
-    repoRoot,
-    "apps/cre-workflow/auction-workflow/config.json",
-  );
-  updateJsonConfig(auctionConfigPath, (obj) => {
-    obj.auctionAddress = auctionAddress;
-  });
+  // ── auction-log-trigger-workflow ───────────────────────────────────────────
+  console.log("\n⚙️  auction-log-trigger-workflow:");
+  const auctionLogEvm = (obj: Record<string, unknown>) => {
+    const evms = obj.evms as Record<string, unknown>[] | undefined;
+    if (Array.isArray(evms) && evms.length > 0) {
+      evms[0].auctionAddress = auctionAddress;
+    }
+  };
+  updateJsonConfig(path.join(creRoot, "auction-log-trigger-workflow/config.json"), auctionLogEvm);
+  updateJsonConfig(path.join(creRoot, "auction-log-trigger-workflow/config.json.example"), auctionLogEvm);
 
-  console.log("Environment and config files updated with latest deployment addresses.");
+  // ── auction-workflow (ZK solver) ───────────────────────────────────────────
+  console.log("\n⚙️  auction-workflow:");
+  const auctionSolver = (obj: Record<string, unknown>) => {
+    obj.auctionContractAddress = auctionAddress;
+  };
+  updateJsonConfig(path.join(creRoot, "auction-workflow/config.json"), auctionSolver);
+  updateJsonConfig(path.join(creRoot, "auction-workflow/config.json.example"), auctionSolver);
+
+  console.log("\n✨ All files updated.\n");
 }
 
 main();
-
