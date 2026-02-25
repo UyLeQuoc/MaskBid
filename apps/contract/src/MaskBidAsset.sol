@@ -148,9 +148,8 @@ contract MaskBidAsset is ERC1155, AccessControl, ERC1155Burnable, ReceiverTempla
     /**
      * @dev Verify an asset and mint 1 RWA NFT to the issuer in a single tx.
      *      Emits AssetVerified (index 0) and TokensMinted (index 2, after ERC1155 TransferSingle).
-     *      Admin-only.
      */
-    function verifyAndMint(uint256 assetId, string memory verificationDetails) public onlyRole(ADMIN_ROLE) {
+    function verifyAndMint(uint256 assetId, string memory verificationDetails) public {
         require(!assets[assetId].active, "Already verified");
         require(assetIssuers[assetId] != address(0), "Asset does not exist");
 

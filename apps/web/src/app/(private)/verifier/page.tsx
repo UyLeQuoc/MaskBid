@@ -11,7 +11,7 @@ const CONTRACT_ADDRESS = env.NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS as `0x${string}`
 const RPC_URL = env.NEXT_PUBLIC_RPC_URL
 
 const VERIFY_ABI = parseAbi([
-    'function verifyAsset(uint256 assetId, bool isValid, string verificationDetails) public',
+    'function verifyAndMint(uint256 assetId, string verificationDetails) public',
 ])
 
 const ASSET_VERIFIED_TOPIC = toEventSelector(
@@ -82,8 +82,8 @@ export default function VerifierPage() {
             const hash = await walletClient.writeContract({
                 address: CONTRACT_ADDRESS,
                 abi: VERIFY_ABI,
-                functionName: 'verifyAsset',
-                args: [BigInt(asset.asset_id), true, 'Verified by admin'],
+                functionName: 'verifyAndMint',
+                args: [BigInt(asset.asset_id), 'Verified by admin'],
                 account: account as `0x${string}`,
             })
 
