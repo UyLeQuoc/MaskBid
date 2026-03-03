@@ -1,9 +1,9 @@
 {
-  "url": "https://<project-ref>.supabase.co/functions/v1/auction-event-handler",
+  "url": "https://npcwptlazfyhwepiuctf.supabase.co/functions/v1/auction-event-handler",
   "evms": [
     {
-      "auctionAddress": "0x96FEbbF894C818569E32E0824c5989DE5B1031aE",
-      "chainSelectorName": "ethereum-sepolia",
+      "auctionAddress": "0x869378998448bbdfa23e1d0fd564aefa68e4090a",
+      "chainSelectorName": "ethereum-testnet-sepolia",
       "gasLimit": "300000"
     }
   ]

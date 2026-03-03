@@ -248,6 +248,38 @@ export const MaskBidAuctionABI = [
     type: "function",
   },
   {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "auctionId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "newStartTime", type: "uint256" },
+    ],
+    name: "AuctionStartTimeUpdated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "auctionId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "newEndTime", type: "uint256" },
+    ],
+    name: "AuctionEndTimeUpdated",
+    type: "event",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "auctionId", type: "uint256" }],
+    name: "setAuctionStartSoon",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "auctionId", type: "uint256" }],
+    name: "setAuctionEndSoon",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "rwaToken",
     outputs: [{ internalType: "contract IERC1155", name: "", type: "address" }],

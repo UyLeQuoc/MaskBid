@@ -14,6 +14,8 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   AuctionEnded: ["auctionId", "endTime"],
   AuctionFinalized: ["auctionId", "winner", "winningBid"],
   BidRefunded: ["auctionId", "bidder", "amount"],
+  AuctionStartTimeUpdated: ["auctionId", "newStartTime"],
+  AuctionEndTimeUpdated: ["auctionId", "newEndTime"],
 };
 
 // ============================================================================
@@ -252,6 +254,42 @@ const handlers: Record<
 
     console.log(`Auction ${auctionId} finalized with winner ${winner}`);
     return { message: "Auction finalized", auctionId, winner, winningBid };
+  },
+
+  // ==========================================================================
+  // AuctionStartTimeUpdated: Update started_at in the auctions table
+  // ==========================================================================
+  async AuctionStartTimeUpdated(client, { auctionId, newStartTime }) {
+    const { error } = await client
+      .from("auctions")
+      .update({ started_at: new Date(Number(newStartTime) * 1000).toISOString() })
+      .eq("contract_auction_id", Number(auctionId));
+
+    if (error) {
+      console.error("Failed to update auction start time:", error);
+      throw new Error(error.message);
+    }
+
+    console.log(`Auction ${auctionId} start time updated to ${newStartTime}`);
+    return { message: "Auction start time updated", auctionId, newStartTime };
+  },
+
+  // ==========================================================================
+  // AuctionEndTimeUpdated: Update ends_at in the auctions table
+  // ==========================================================================
+  async AuctionEndTimeUpdated(client, { auctionId, newEndTime }) {
+    const { error } = await client
+      .from("auctions")
+      .update({ ends_at: new Date(Number(newEndTime) * 1000).toISOString() })
+      .eq("contract_auction_id", Number(auctionId));
+
+    if (error) {
+      console.error("Failed to update auction end time:", error);
+      throw new Error(error.message);
+    }
+
+    console.log(`Auction ${auctionId} end time updated to ${newEndTime}`);
+    return { message: "Auction end time updated", auctionId, newEndTime };
   },
 
   // ==========================================================================

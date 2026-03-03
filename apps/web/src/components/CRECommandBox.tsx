@@ -12,6 +12,7 @@ type CREStep = {
 type Props = {
     txHash: string
     steps: CREStep[]
+    command?: string
     onDone?: () => void
 }
 
@@ -33,8 +34,8 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
     )
 }
 
-export function CRECommandBox({ txHash, steps, onDone }: Props) {
-    const command = 'cre workflow simulate asset-log-trigger-workflow --broadcast --target local-simulation'
+export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: Props) {
+    const command = commandProp ?? 'cre workflow simulate asset-log-trigger-workflow --broadcast --target local-simulation'
 
     return (
         <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 text-sm font-mono">
