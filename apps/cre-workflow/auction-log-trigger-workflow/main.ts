@@ -82,12 +82,28 @@ type BidRefundedParams = {
   txHash?: string;
 };
 
+type AuctionStartTimeUpdatedParams = {
+  action: "AuctionStartTimeUpdated";
+  auctionId: string;
+  newStartTime: string;
+  txHash?: string;
+};
+
+type AuctionEndTimeUpdatedParams = {
+  action: "AuctionEndTimeUpdated";
+  auctionId: string;
+  newEndTime: string;
+  txHash?: string;
+};
+
 type AuctionEventParams =
   | AuctionCreatedParams
   | BidPlacedParams
   | AuctionEndedParams
   | AuctionFinalizedParams
-  | BidRefundedParams;
+  | BidRefundedParams
+  | AuctionStartTimeUpdatedParams
+  | AuctionEndTimeUpdatedParams;
 
 // =============================================================================
 // SEND EVENT DATA TO SUPABASE EDGE FUNCTION
@@ -106,17 +122,12 @@ const postEventData = (
   // Convert to base64 for the request
   const body = Buffer.from(bodyBytes).toString("base64");
 
-  // Construct the POST request with cacheSettings
   const req = {
     url: config.url,
     method: "POST" as const,
     body,
     headers: {
       "Content-Type": "application/json",
-    },
-    cacheSettings: {
-      readFromCache: true,
-      maxAgeMs: 60000,
     },
   };
 
@@ -137,6 +148,8 @@ const eventAbi = parseAbi([
   "event AuctionEnded(uint256 indexed auctionId, uint256 endTime)",
   "event AuctionFinalized(uint256 indexed auctionId, address indexed winner, uint256 indexed winningBid)",
   "event BidRefunded(uint256 indexed auctionId, address indexed bidder, uint256 amount)",
+  "event AuctionStartTimeUpdated(uint256 indexed auctionId, uint256 newStartTime)",
+  "event AuctionEndTimeUpdated(uint256 indexed auctionId, uint256 newEndTime)",
 ]);
 
 // =============================================================================
@@ -238,6 +251,26 @@ const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
       runtime.log(
         `Event BidRefunded detected: auctionId ${auctionId} | bidder ${bidder} | amount ${amount}`,
       );
+      break;
+    }
+    case "AuctionStartTimeUpdated": {
+      const { auctionId, newStartTime } = decodedLog.args;
+      eventParams = {
+        action: "AuctionStartTimeUpdated",
+        auctionId: auctionId.toString(),
+        newStartTime: newStartTime.toString(),
+      };
+      runtime.log(`Event AuctionStartTimeUpdated detected: auctionId ${auctionId} | newStartTime ${newStartTime}`);
+      break;
+    }
+    case "AuctionEndTimeUpdated": {
+      const { auctionId, newEndTime } = decodedLog.args;
+      eventParams = {
+        action: "AuctionEndTimeUpdated",
+        auctionId: auctionId.toString(),
+        newEndTime: newEndTime.toString(),
+      };
+      runtime.log(`Event AuctionEndTimeUpdated detected: auctionId ${auctionId} | newEndTime ${newEndTime}`);
       break;
     }
     default:

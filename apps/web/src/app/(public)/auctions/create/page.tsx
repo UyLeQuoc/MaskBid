@@ -6,6 +6,7 @@ import { BrowserProvider, Contract, Interface } from 'ethers'
 import { useSDK } from '@metamask/sdk-react'
 import { MaskBidAuctionABI } from '@/abis/MaskBidAuction'
 import { env } from '@/configs/env'
+import { CRECommandBox } from '@/components/CRECommandBox'
 
 type Step = 'connect' | 'form' | 'approving' | 'creating' | 'success' | 'error'
 
@@ -44,7 +45,7 @@ function CreateAuctionForm() {
     const [error, setError] = useState<string | null>(null)
     const [txHash, setTxHash] = useState<string | null>(null)
     const [auctionId, setAuctionId] = useState<string | null>(null)
-    const [copied, setCopied] = useState(false)
+    const [auctionEventIndex, setAuctionEventIndex] = useState(0)
 
     // Form state
     const [tokenId, setTokenId] = useState(assetId)
@@ -177,13 +178,15 @@ function CreateAuctionForm() {
             const receipt = await tx.wait()
             setTxHash(receipt.hash)
 
-            // Parse auctionId from AuctionCreated event
+            // Parse auctionId and event index from AuctionCreated event
             const iface = new Interface(MaskBidAuctionABI)
-            for (const log of receipt.logs) {
+            for (let i = 0; i < receipt.logs.length; i++) {
+                const log = receipt.logs[i]
                 try {
                     const parsed = iface.parseLog({ topics: [...log.topics], data: log.data })
                     if (parsed?.name === 'AuctionCreated') {
                         setAuctionId(parsed.args.auctionId.toString())
+                        setAuctionEventIndex(i)
                         break
                     }
                 } catch {
@@ -415,36 +418,14 @@ function CreateAuctionForm() {
                             </div>
                         </div>
 
-                        {/* CRE Workflow Command Box */}
-                        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6">
-                            <div className="flex items-center justify-between mb-3">
-                                <div>
-                                    <span className="text-slate-300 text-sm font-semibold">Next Step: Trigger CRE Auction Workflow</span>
-                                    {auctionId && (
-                                        <p className="text-slate-500 text-xs mt-0.5">
-                                            First update <code className="text-amber-400">apps/cre-workflow/auction-workflow/config.json</code> → set <code className="text-amber-400">"auctionId": "{auctionId}"</code>
-                                        </p>
-                                    )}
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const cmd = `cd apps/cre-workflow\ncre workflow simulate auction-workflow --target local-simulation`
-                                        navigator.clipboard.writeText(cmd).then(() => {
-                                            setCopied(true)
-                                            setTimeout(() => setCopied(false), 2000)
-                                        })
-                                    }}
-                                    className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg transition-colors shrink-0"
-                                >
-                                    {copied ? 'Copied!' : 'Copy'}
-                                </button>
-                            </div>
-                            <pre className="text-green-400 font-mono text-sm overflow-x-auto whitespace-pre">{`cd apps/cre-workflow\ncre workflow simulate auction-workflow --target local-simulation`}</pre>
-                            <p className="text-slate-500 text-xs mt-3">
-                                With broadcast to Sepolia: append <code className="text-slate-400">--broadcast</code> to the command above.
-                            </p>
-                        </div>
+                        {txHash && (
+                            <CRECommandBox
+                                txHash={txHash}
+                                command="cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation"
+                                steps={[{ label: 'AuctionCreated', eventIndex: auctionEventIndex }]}
+                                onDone={() => router.push('/auctions')}
+                            />
+                        )}
                     </div>
                 )}
 

@@ -34,7 +34,7 @@ const configSchema = z.object({
   supabaseUrl: z.string(), // Supabase REST API URL
   supabaseKey: z.string(), // Supabase service role key
   auctionContractAddress: z.string(), // MaskBidAuction contract address
-  chainSelectorName: z.string().default("ethereum-sepolia"), // Chain selector for EVMClient
+  chainSelectorName: z.string().default("ethereum-testnet-sepolia"), // Chain selector for EVMClient
   gasLimit: z.string().default("500000"), // Gas limit for on-chain transactions
 });
 
@@ -209,7 +209,7 @@ const submitWinnerOnChain = (
 
   const network = getNetwork({
     chainFamily: "evm",
-    chainSelectorName: config.chainSelectorName || "ethereum-sepolia",
+    chainSelectorName: config.chainSelectorName || "ethereum-testnet-sepolia",
     isTestnet: true,
   });
 

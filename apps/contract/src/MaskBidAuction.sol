@@ -119,6 +119,18 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
         uint256 amount
     );
 
+    /// @dev Test-only: emitted when start time is overridden for demo purposes
+    event AuctionStartTimeUpdated(
+        uint256 indexed auctionId,
+        uint256 newStartTime
+    );
+
+    /// @dev Test-only: emitted when end time is overridden for demo purposes
+    event AuctionEndTimeUpdated(
+        uint256 indexed auctionId,
+        uint256 newEndTime
+    );
+
     // ================================================================
     // CONSTRUCTOR
     // ================================================================
@@ -348,6 +360,48 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
         );
 
         emit AuctionCancelled(auctionId, msg.sender);
+    }
+
+    // ================================================================
+    // TEST HELPERS (admin only — for demo/hackathon use)
+    // ================================================================
+
+    /**
+     * @notice Set auction startTime to block.timestamp + 30 seconds.
+     *         Useful for testing without waiting for the original start time.
+     */
+    function setAuctionStartSoon(uint256 auctionId) external {
+        Auction storage auction = auctions[auctionId];
+        require(auction.seller != address(0), "Auction does not exist");
+        require(
+            auction.state == AuctionState.Created || auction.state == AuctionState.Active,
+            "Cannot update ended or cancelled auction"
+        );
+        uint256 newStartTime = block.timestamp + 30;
+        require(newStartTime < auction.endTime, "New start time must be before end time");
+        auction.startTime = newStartTime;
+        // Revert to Created so bidding gate re-evaluates properly
+        if (auction.state == AuctionState.Active) {
+            auction.state = AuctionState.Created;
+        }
+        emit AuctionStartTimeUpdated(auctionId, newStartTime);
+    }
+
+    /**
+     * @notice Set auction endTime to block.timestamp + 30 seconds.
+     *         Useful for fast-forwarding an auction to nearly-ended state.
+     */
+    function setAuctionEndSoon(uint256 auctionId) external {
+        Auction storage auction = auctions[auctionId];
+        require(auction.seller != address(0), "Auction does not exist");
+        require(
+            auction.state == AuctionState.Created || auction.state == AuctionState.Active,
+            "Cannot update ended or cancelled auction"
+        );
+        uint256 newEndTime = block.timestamp + 30;
+        require(newEndTime > auction.startTime, "End time must be after start time");
+        auction.endTime = newEndTime;
+        emit AuctionEndTimeUpdated(auctionId, newEndTime);
     }
 
     // ================================================================
