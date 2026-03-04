@@ -9,12 +9,12 @@ MaskBid is a decentralized auction platform for Real World Assets (RWAs) built f
 **Key Technologies:**
 
 - **Package Manager:** Bun v1.3.9
-- **Monorepo:** Turborepo with workspaces
-- **Frontend:** Next.js 15 + React 19 + TypeScript 5 (World Mini App)
+- **Monorepo:** Turborepo with workspaces (`apps/web`, `apps/contract`, `apps/cre-workflow`, `apps/supabase`)
+- **Frontend:** Next.js 15 + React 19 + TypeScript 5 + MetaMask SDK
 - **Privacy:** Chainlink CRE + ConfidentialHTTP
 - **Identity:** World ID (next-auth v5)
 - **Backend:** Supabase (Postgres + Edge Functions)
-- **Contracts:** Solidity ^0.8.20 (ERC-1155 via OpenZeppelin)
+- **Contracts:** Solidity ^0.8.20 (ERC-1155 via OpenZeppelin, Foundry for deployment)
 - **Linting:** Biome 2.3.15
 
 ## Common Commands
@@ -52,27 +52,6 @@ bun run knip
 bun run clean
 ```
 
-### Bidder App (World Mini App)
-
-```bash
-cd apps/bidder-app
-
-# Development server
-bun run dev
-
-# Build for production
-bun run build
-
-# Production server
-bun run start
-
-# Lint
-bun run lint
-
-# Format
-bun run format
-```
-
 ### CRE Workflows
 
 ```bash
@@ -91,25 +70,31 @@ cre workflow simulate auction-workflow --target local-simulation
 cre workflow simulate auction-workflow --broadcast --target local-simulation
 ```
 
-### Contract Interactions
+### Contract Scripts (Foundry + viem)
 
 ```bash
-cd apps/cre-workflow
+cd apps/contract
 
-# These scripts emit events that trigger CRE workflows
-npx tsx contracts/scripts/1_deploy.ts
-npx tsx contracts/scripts/2_registerNewAsset.ts    # emits AssetRegistered
-npx tsx contracts/scripts/3_verifyAsset.ts         # emits AssetVerified
-npx tsx contracts/scripts/5_mint.ts                # emits TokensMinted
-npx tsx contracts/scripts/6_redeem.ts              # emits TokensRedeemed
+# Deploy contracts (Foundry)
+forge script script/Deploy.s.sol --broadcast
 
-# Auction Contract Interactions
-npx tsx contracts/scripts/7_deployAuction.ts
-npx tsx contracts/scripts/8_createAuction.ts       # emits AuctionCreated
-npx tsx contracts/scripts/9_placeBid.ts            # emits BidPlaced (USDC escrow)
-npx tsx contracts/scripts/10_finalizeAuction.ts    # emits AuctionFinalized
-npx tsx contracts/scripts/11_claimRefund.ts        # emits BidRefunded
-npx tsx contracts/scripts/e2e_test.ts              # Full E2E test on Tenderly fork
+# Asset lifecycle scripts (viem/tsx)
+npx tsx scripts/2_registerNewAsset.ts    # emits AssetRegistered
+npx tsx scripts/3_verifyAsset.ts         # emits AssetVerified
+npx tsx scripts/5_mint.ts                # emits TokensMinted
+npx tsx scripts/6_redeem.ts             # emits TokensRedeemed
+
+# Auction contract interactions
+npx tsx scripts/7_deployAuction.ts
+npx tsx scripts/8_createAuction.ts       # emits AuctionCreated
+npx tsx scripts/9_placeBid.ts            # emits BidPlaced (USDC escrow)
+npx tsx scripts/10_finalizeAuction.ts    # emits AuctionFinalized
+npx tsx scripts/11_claimRefund.ts        # emits BidRefunded
+npx tsx scripts/e2e_test.ts              # Full E2E test on Tenderly fork
+
+# Deploy all + auto-update .env files across workspaces
+npx tsx scripts/deployAll.ts
+npx tsx scripts/updateEnv.ts
 ```
 
 ## Architecture
@@ -119,7 +104,7 @@ npx tsx contracts/scripts/e2e_test.ts              # Full E2E test on Tenderly f
 The core innovation is confidential bidding where bids remain encrypted until auction resolution:
 
 ```
-Bidder App (Next.js)
+Web App (Next.js)
   ↓
 Client-side RSA encryption of bid amount
   ↓
@@ -129,7 +114,7 @@ Chainlink CRE (ConfidentialHTTP)
   ↓
 Supabase Edge Function (solver) - decrypts and selects winner
   ↓
-Winner written on-chain
+Winner written on-chain via MaskBidAuction.sol
 ```
 
 **Security Model:**
@@ -166,14 +151,15 @@ Winner written on-chain
 
 ### Smart Contract Architecture
 
-**TokenizedAssetPlatform.sol** (ERC-1155):
+**MaskBidAsset.sol** (ERC-1155, in `apps/contract/src/`):
 
+- Renamed from `TokenizedAssetPlatform.sol`
 - Role-based access: `ADMIN_ROLE`, `ISSUER_ROLE`
 - Asset lifecycle: Register → Verify → Mint → Redeem/Transfer
 - CRE integration via `ReceiverTemplate` pattern for metadata updates
 - Key events: `AssetRegistered`, `AssetVerified`, `TokensMinted`, `TokensRedeemed`
 
-**MaskBidAuction.sol**:
+**MaskBidAuction.sol** (in `apps/contract/src/`):
 
 - Manages confidential sealed-bid auctions for ERC-1155 RWAs
 - Automatic ERC-1155 token escrow upon `createAuction`
@@ -184,12 +170,11 @@ Winner written on-chain
 
 ### Authentication
 
-**World ID + Wallet Auth:**
+**World ID + MetaMask Wallet Auth (in `apps/web/`):**
 
-- Uses `@worldcoin/minikit-js` for wallet authentication
-- next-auth v5 with credentials provider
-- SIWE (Sign-In with Ethereum) message verification
-- Session includes: `walletAddress`, `username`, `profilePictureUrl`
+- Uses `@metamask/sdk-react` for wallet connection
+- MetaMask SDK for signing and transaction submission
+- Session includes wallet address
 
 ## Configuration Files
 
@@ -212,26 +197,37 @@ Winner written on-chain
 
 ## Key File Locations
 
-| Purpose                     | Path                                                         |
-| --------------------------- | ------------------------------------------------------------ |
-| CRE workflow (ZK auction)   | `apps/cre-workflow/auction-workflow/main.ts`                 |
-| CRE project config          | `apps/cre-workflow/project.yaml`                             |
-| Solver Edge Function        | `apps/supabase/functions/solver/index.ts`                    |
-| Asset handler Edge Function | `apps/supabase/functions/asset-handler/index.ts`             |
-| Database migrations         | `apps/supabase/migrations/`                                  |
-| RWA Smart Contract          | `apps/cre-workflow/contracts/src/TokenizedAssetPlatform.sol` |
-| Auction Smart Contract      | `apps/cre-workflow/contracts/src/MaskBidAuction.sol`         |
-| World ID auth               | `apps/bidder-app/src/auth/index.ts`                          |
-| Setup guide                 | `docs/HOW_TO_RUN.md`, `docs/SETUP_ZK_AUCTION.md`             |
+| Purpose                      | Path                                                     |
+| ---------------------------- | -------------------------------------------------------- |
+| CRE workflow (ZK auction)    | `apps/cre-workflow/auction-workflow/main.ts`              |
+| CRE auction log trigger      | `apps/cre-workflow/auction-log-trigger-workflow/main.ts`  |
+| CRE asset log trigger        | `apps/cre-workflow/asset-log-trigger-workflow/main.ts`    |
+| CRE project config           | `apps/cre-workflow/project.yaml`                         |
+| Solver Edge Function         | `apps/supabase/functions/solver/index.ts`                |
+| Asset handler Edge Function  | `apps/supabase/functions/asset-handler/index.ts`         |
+| Auction handler Edge Function| `apps/supabase/functions/auction-event-handler/index.ts`  |
+| Database migration           | `apps/supabase/migrations/20260224000000_init.sql`       |
+| RWA Smart Contract           | `apps/contract/src/MaskBidAsset.sol`                     |
+| Auction Smart Contract       | `apps/contract/src/MaskBidAuction.sol`                   |
+| Contract deploy script       | `apps/contract/script/Deploy.s.sol`                      |
+| Contract interaction scripts | `apps/contract/scripts/`                                 |
+| Frontend ABIs                | `apps/web/src/abis/`                                     |
+| Auction create page          | `apps/web/src/app/(public)/auctions/create/page.tsx`     |
+| RSA encryption lib           | `apps/web/src/lib/crypto.ts`                             |
+| Setup guide                  | `docs/HOW_TO_RUN.md`, `docs/SETUP_ZK_AUCTION.md`        |
 
 ## Environment Setup
 
 Copy example configs and fill in values:
 
 ```bash
+# Contract deployment
+cp apps/contract/.env.example apps/contract/.env
+# Required: PRIVATE_KEY, TENDERLY_VIRTUAL_TESTNET_RPC_URL
+
 # CRE workflow
 cp apps/cre-workflow/.env.example apps/cre-workflow/.env
-# Required: CRE_ETH_PRIVATE_KEY, CRE_TARGET
+# Required: CRE_ETH_PRIVATE_KEY, CRE_TARGET, SOLVER_AUTH_TOKEN_DEV
 
 cp apps/cre-workflow/asset-log-trigger-workflow/config.json.example \
    apps/cre-workflow/asset-log-trigger-workflow/config.json
@@ -241,9 +237,9 @@ cp apps/cre-workflow/auction-workflow/config.json.example \
    apps/cre-workflow/auction-workflow/config.json
 # Required: solverUrl, auctionId, owner
 
-# Bidder app
-cp apps/bidder-app/.env.example apps/bidder-app/.env
-# Required: NEXTAUTH_SECRET, WORLD_APP_ID, WORLD_CLIENT_SECRET
+# Web app
+cp apps/web/.env.example apps/web/.env
+# Required: contract addresses, Supabase URL/key
 ```
 
 ## Notes

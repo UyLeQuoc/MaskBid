@@ -58,20 +58,52 @@ function encodeAuctionReport(
 }
 
 /**
- * Decrypt a bid using RSA private key
- * In production, this would use proper crypto libraries
+ * Import a PEM-encoded RSA private key for decryption (PKCS8 format)
+ */
+async function importPrivateKey(pem: string): Promise<CryptoKey> {
+  const pemContents = pem
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\s/g, "");
+
+  const binaryDer = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
+
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    binaryDer.buffer,
+    {
+      name: "RSA-OAEP",
+      hash: "SHA-256",
+    },
+    false,
+    ["decrypt"],
+  );
+}
+
+/**
+ * Decrypt a bid using RSA-OAEP with the solver's private key.
+ * Matches the frontend encryption in apps/web/src/lib/crypto.ts
  */
 async function decryptBid(
   encryptedBid: string,
   privateKey: string,
 ): Promise<{ user: string; amount: number }> {
-  // TODO: Implement actual RSA decryption
-  // For hackathon demo, we'll simulate decryption
-  // In production: use Web Crypto API or node-forge
   try {
-    const decoded = atob(encryptedBid);
-    return JSON.parse(decoded);
-  } catch {
+    const key = await importPrivateKey(privateKey);
+    const encryptedBytes = Uint8Array.from(atob(encryptedBid), (c) =>
+      c.charCodeAt(0),
+    );
+
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: "RSA-OAEP" },
+      key,
+      encryptedBytes.buffer,
+    );
+
+    const json = new TextDecoder().decode(decryptedBuffer);
+    return JSON.parse(json);
+  } catch (err) {
+    console.error("RSA decryption failed:", err);
     throw new Error("Failed to decrypt bid");
   }
 }
