@@ -27,7 +27,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
         <button
             type="button"
             onClick={copy}
-            className="text-xs font-sans text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-2 py-0.5 rounded-lg transition-colors whitespace-nowrap"
+            className="text-[10px] font-serif tracking-wider text-dim hover:text-gold border border-border hover:border-gold/30 px-2 py-0.5 transition-colors whitespace-nowrap"
         >
             {copied ? '✓ Copied' : (label ?? 'Copy')}
         </button>
@@ -38,33 +38,38 @@ export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: P
     const command = commandProp ?? 'cre workflow simulate asset-log-trigger-workflow --broadcast --target local-simulation'
 
     return (
-        <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 text-sm font-mono">
-            <div className="flex items-center gap-2 mb-4">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <span className="text-green-400 text-xs font-sans font-semibold tracking-wide">Transaction confirmed — sync with Chainlink CRE</span>
+        <div className="frame-ornate-dark p-5 text-sm font-mono space-y-4">
+            {/* Header */}
+            <div className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 bg-status-live animate-pulse inline-block" />
+                <span className="text-status-live text-xs font-serif tracking-wider">
+                    Transaction confirmed — sync with Chainlink CRE
+                </span>
             </div>
 
+            <div className="h-px bg-gold/10" />
+
             {/* Tx hash */}
-            <div className="mb-4">
-                <div className="flex items-center justify-between mb-1">
-                    <p className="text-slate-500 text-xs font-sans">Transaction hash (digest)</p>
+            <div>
+                <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-dim text-xs font-serif tracking-wide">Transaction hash</p>
                     <CopyButton text={txHash} />
                 </div>
                 <a
                     href={`${EXPLORER_URL}/${txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 break-all transition-colors text-xs"
+                    className="text-gold/60 hover:text-gold break-all transition-colors text-xs"
                 >
                     {txHash}
                 </a>
             </div>
 
             {/* Command */}
-            <div className="mb-4">
-                <p className="text-slate-500 text-xs font-sans mb-2">Run in terminal</p>
-                <div className="relative bg-slate-800 rounded-xl px-4 py-3">
-                    <p className="text-green-300 pr-16 leading-relaxed text-xs">{command}</p>
+            <div>
+                <p className="text-dim text-xs font-serif tracking-wide mb-2">Run in terminal</p>
+                <div className="relative bg-background border border-border px-4 py-3">
+                    <p className="text-status-live pr-16 leading-relaxed text-xs">{command}</p>
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <CopyButton text={command} />
                     </div>
@@ -73,46 +78,52 @@ export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: P
 
             {/* Steps */}
             <div className="space-y-3">
-                <p className="text-slate-500 text-xs font-sans">When prompted by the CLI, enter these values:</p>
+                <p className="text-dim text-xs font-serif tracking-wide">When prompted by the CLI, enter these values:</p>
                 {steps.map((step, i) => (
-                    <div key={step.label} className="bg-slate-800 rounded-xl px-4 py-3 space-y-2">
-                        <p className="text-slate-300 text-xs font-sans font-semibold">Step {i + 1}: {step.label}</p>
-
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-slate-500 text-xs font-sans">Trigger type</p>
-                                <p className="text-yellow-300 text-xs">1 (LogTrigger)</p>
-                            </div>
-                            <CopyButton text="1" label="Copy" />
+                    <div key={step.label} className="border border-border bg-background divide-y divide-border">
+                        <div className="px-4 py-2 flex items-center gap-2">
+                            <span className="text-gold/40 text-[6px]">&#9670;</span>
+                            <p className="text-muted text-xs font-serif tracking-wider">Step {i + 1}: {step.label}</p>
                         </div>
 
-                        <div className="flex items-center justify-between">
+                        <div className="px-4 py-2.5 flex items-center justify-between">
+                            <div>
+                                <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Trigger type</p>
+                                <p className="text-gold font-mono text-xs">1 <span className="text-dim font-serif">(LogTrigger)</span></p>
+                            </div>
+                            <CopyButton text="1" />
+                        </div>
+
+                        <div className="px-4 py-2.5 flex items-center justify-between">
                             <div className="min-w-0 flex-1 mr-3">
-                                <p className="text-slate-500 text-xs font-sans">Transaction hash</p>
-                                <p className="text-blue-300 text-xs truncate">{txHash}</p>
+                                <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Transaction hash</p>
+                                <p className="text-gold/60 text-xs truncate">{txHash}</p>
                             </div>
                             <CopyButton text={txHash} />
                         </div>
 
-                        <div className="flex items-center justify-between">
+                        <div className="px-4 py-2.5 flex items-center justify-between">
                             <div>
-                                <p className="text-slate-500 text-xs font-sans">Event index</p>
-                                <p className="text-yellow-300 text-xs">{step.eventIndex}</p>
+                                <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Event index</p>
+                                <p className="text-gold font-mono text-xs">{step.eventIndex}</p>
                             </div>
-                            <CopyButton text={String(step.eventIndex)} label="Copy" />
+                            <CopyButton text={String(step.eventIndex)} />
                         </div>
                     </div>
                 ))}
             </div>
 
             {onDone && (
-                <button
-                    type="button"
-                    onClick={onDone}
-                    className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-sans py-2 rounded-xl transition-colors"
-                >
-                    Done
-                </button>
+                <>
+                    <div className="h-px bg-gold/10" />
+                    <button
+                        type="button"
+                        onClick={onDone}
+                        className="btn-ornate-ghost w-full text-muted hover:text-foreground font-serif tracking-wider text-xs py-2"
+                    >
+                        Done
+                    </button>
+                </>
             )}
         </div>
     )
