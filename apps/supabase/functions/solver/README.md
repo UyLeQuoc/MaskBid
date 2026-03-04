@@ -111,7 +111,7 @@ The solver expects these tables (see migration `20260216000001_create_bids_table
 | Token Storage | Supabase Secrets (Deno.env) |
 | RSA Key Storage | Supabase Secrets (Deno.env) |
 | Authorization | Header check against `SOLVER_AUTH_TOKEN_DEV` |
-| Encryption | RSA-OAEP for bid data |
+| Encryption | RSA-OAEP + SHA-256 via Web Crypto API (matches frontend `apps/web/src/lib/crypto.ts`) |
 | Access Control | Only service_role can read/write bids |
 
 ## Integration with CRE Workflow
@@ -147,8 +147,10 @@ The `{{.solver_auth_token}}` is replaced by the Chainlink Enclave at runtime.
 - Verify bid status is 'active'
 
 ### Decryption Fails
-- Ensure `RSA_PRIVATE_KEY` is set correctly
-- Check bids were encrypted with the corresponding public key
+- Ensure `RSA_PRIVATE_KEY` is set correctly (PEM PKCS8 format)
+- Check bids were encrypted with the corresponding public key (`NEXT_PUBLIC_RSA_PUBLIC_KEY` in `apps/web/.env`)
+- Both sides must use RSA-OAEP with SHA-256 (Web Crypto API)
+- Run the test script to verify: `cd apps/supabase && bunx tsx test-solver.ts`
 
 ## Local Development
 
