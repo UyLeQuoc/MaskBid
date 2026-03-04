@@ -36,6 +36,10 @@ type VerifyResult = {
     eventIndex: number
 }
 
+function Diamond({ size = 'sm' }: { size?: 'sm' | 'xs' }) {
+    return <span className={size === 'xs' ? 'text-gold/30 text-[6px]' : 'text-gold/40 text-[8px]'}>&#9670;</span>
+}
+
 export default function VerifierPage() {
     const { account } = useSDK()
     const router = useRouter()
@@ -73,6 +77,7 @@ export default function VerifierPage() {
         try {
             const walletClient = createWalletClient({
                 chain: sepolia,
+                // biome-ignore lint/suspicious/noExplicitAny: browser provider
                 transport: custom((window as any).ethereum),
             })
             const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC_URL) })
@@ -107,19 +112,27 @@ export default function VerifierPage() {
     }
 
     return (
-        <div className="bg-slate-50 min-h-screen text-slate-900">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold mb-1">Verifier Dashboard</h1>
-                    <p className="text-slate-500">Review and authenticate asset submissions.</p>
+        <div className="min-h-screen bg-background text-foreground pt-24 pb-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+                {/* Header */}
+                <div className="mb-10">
+                    <p className="text-gold/50 font-mono text-xs tracking-widest uppercase mb-2">MaskBid</p>
+                    <h1 className="font-serif text-4xl font-semibold text-foreground mb-2">Verifier Dashboard</h1>
+                    <div className="flex items-center gap-2 text-dim text-sm font-serif">
+                        <Diamond size="xs" />
+                        <span>Review and authenticate asset submissions.</span>
+                    </div>
                 </div>
 
+                {/* Error */}
                 {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-6 text-red-700 text-sm">
-                        {error}
+                    <div className="border border-status-error/30 px-4 py-3 mb-6">
+                        <p className="text-status-error font-serif text-sm">{error}</p>
                     </div>
                 )}
 
+                {/* CRE result box */}
                 {result && (
                     <div className="mb-8">
                         <CRECommandBox
@@ -130,29 +143,31 @@ export default function VerifierPage() {
                     </div>
                 )}
 
-                {/* Pending Queue */}
-                <div className="mb-10">
-                    <div className="flex items-center gap-3 mb-5">
-                        <h2 className="text-slate-900 font-semibold text-xl">Pending Verification</h2>
+                {/* ── Pending Queue ── */}
+                <div className="mb-12">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-px flex-1 bg-gold/10" />
+                        <h2 className="font-serif text-sm text-muted tracking-wider uppercase">Pending Verification</h2>
                         {!loading && (
-                            <span className="bg-orange-50 text-orange-500 text-xs font-bold px-2.5 py-1 rounded-full">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-serif tracking-wider px-3 py-1 border border-gold/30 text-gold">
+                                <Diamond size="xs" />
                                 {pending.length}
                             </span>
                         )}
+                        <div className="h-px flex-1 bg-gold/10" />
                     </div>
 
                     {loading && (
-                        <div className="flex items-center gap-3 py-8 text-slate-400">
-                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                            Loading...
+                        <div className="flex items-center gap-3 py-10 text-dim font-serif text-sm">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gold" />
+                            Loading…
                         </div>
                     )}
 
                     {!loading && pending.length === 0 && (
-                        <p className="text-slate-400 text-sm py-4">No assets pending verification.</p>
+                        <div className="text-center py-10">
+                            <p className="text-dim font-serif text-sm">No assets pending verification.</p>
+                        </div>
                     )}
 
                     <div className="space-y-4">
@@ -161,39 +176,53 @@ export default function VerifierPage() {
                             const isConfirming = confirming === item.asset_id
                             const busy = isVerifying || isConfirming
                             return (
-                                <div key={item.asset_id} className="bg-white border border-slate-200 rounded-3xl p-6">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div key={item.asset_id} className="frame-ornate p-6">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
                                         <div className="min-w-0">
-                                            <div className="flex items-center gap-2 mb-2">
+                                            {/* Badges */}
+                                            <div className="flex flex-wrap items-center gap-2 mb-3">
                                                 {item.asset_type && (
-                                                    <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{item.asset_type}</span>
+                                                    <span className="text-[10px] font-serif tracking-wider text-dim px-2 py-0.5 border border-gold/10">
+                                                        {item.asset_type}
+                                                    </span>
                                                 )}
-                                                <span className="text-xs font-medium text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">Pending</span>
+                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-serif tracking-wider px-3 py-1 border border-gold/30 text-gold">
+                                                    <Diamond size="xs" />
+                                                    Pending
+                                                </span>
                                             </div>
-                                            <h3 className="text-slate-900 font-semibold text-lg mb-1">{item.asset_name}</h3>
-                                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-400">
+
+                                            <h3 className="font-serif text-foreground font-semibold text-lg mb-2">{item.asset_name}</h3>
+
+                                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-dim font-serif">
                                                 {item.serial_number && (
-                                                    <span>Serial: <span className="text-slate-600 font-mono">{item.serial_number}</span></span>
+                                                    <span>Serial: <span className="font-mono text-muted">{item.serial_number}</span></span>
                                                 )}
-                                                <span>Submitted by: <span className="text-slate-600 font-mono">{`${item.issuer.slice(0, 6)}...${item.issuer.slice(-4)}`}</span></span>
-                                                <span>ID: <span className="text-slate-600 font-mono">#{item.asset_id}</span></span>
+                                                <span>
+                                                    Submitted by:{' '}
+                                                    <span className="font-mono text-muted">
+                                                        {`${item.issuer.slice(0, 6)}…${item.issuer.slice(-4)}`}
+                                                    </span>
+                                                </span>
+                                                <span>ID: <span className="font-mono text-muted">#{item.asset_id}</span></span>
                                             </div>
+
                                             {item.description && (
-                                                <p className="text-slate-400 text-sm mt-2 max-w-xl line-clamp-2">{item.description}</p>
+                                                <p className="text-dim font-serif text-xs mt-2 max-w-xl line-clamp-2 leading-relaxed">
+                                                    {item.description}
+                                                </p>
                                             )}
                                         </div>
+
                                         <button
                                             type="button"
                                             onClick={() => handleVerify(item)}
                                             disabled={busy}
-                                            className="bg-green-600 hover:bg-green-500 disabled:bg-green-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-2xl transition-colors flex items-center gap-2 shrink-0"
+                                            className="btn-ornate text-gold font-serif tracking-wider px-6 py-2.5 text-sm shrink-0 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                                         >
                                             {busy ? (
                                                 <>
-                                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                                    </svg>
+                                                    <span className="animate-spin w-3.5 h-3.5 border-2 border-gold/30 border-t-gold rounded-full inline-block" />
                                                     {isConfirming ? 'Confirming…' : 'Waiting for MetaMask…'}
                                                 </>
                                             ) : 'Verify Asset'}
@@ -205,37 +234,53 @@ export default function VerifierPage() {
                     </div>
                 </div>
 
-                {/* Recently Verified */}
+                {/* ── Recently Verified ── */}
                 <div>
-                    <h2 className="text-slate-900 font-semibold text-xl mb-5">Recently Verified</h2>
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-px flex-1 bg-gold/10" />
+                        <h2 className="font-serif text-sm text-muted tracking-wider uppercase">Recently Verified</h2>
+                        <div className="h-px flex-1 bg-gold/10" />
+                    </div>
+
                     {!loading && verified.length === 0 && (
-                        <p className="text-slate-400 text-sm">No verified assets yet.</p>
+                        <div className="text-center py-10">
+                            <p className="text-dim font-serif text-sm">No verified assets yet.</p>
+                        </div>
                     )}
+
                     {verified.length > 0 && (
-                        <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden">
+                        <div className="frame-ornate overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="text-slate-400 text-xs border-b border-slate-200">
-                                        <th className="text-left px-6 py-4">Asset</th>
-                                        <th className="text-left px-4 py-4">Type</th>
-                                        <th className="text-left px-4 py-4">Owner</th>
-                                        <th className="text-left px-4 py-4">Minted</th>
-                                        <th className="text-right px-6 py-4">ID</th>
+                                    <tr className="border-b border-border">
+                                        <th className="text-left px-6 py-4 text-dim font-serif text-xs tracking-widest uppercase">Asset</th>
+                                        <th className="text-left px-4 py-4 text-dim font-serif text-xs tracking-widest uppercase">Type</th>
+                                        <th className="text-left px-4 py-4 text-dim font-serif text-xs tracking-widest uppercase">Owner</th>
+                                        <th className="text-left px-4 py-4 text-dim font-serif text-xs tracking-widest uppercase">Minted</th>
+                                        <th className="text-right px-6 py-4 text-dim font-serif text-xs tracking-widest uppercase">ID</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-border">
                                     {verified.map(item => (
-                                        <tr key={item.asset_id} className="hover:bg-slate-50 transition-colors">
+                                        <tr key={item.asset_id} className="hover:bg-surface/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 bg-green-500 rounded-full" />
-                                                    <span className="text-slate-900 font-medium">{item.asset_name}</span>
+                                                    <span className="w-1.5 h-1.5 bg-status-live inline-block shrink-0" />
+                                                    <span className="font-serif text-foreground font-medium">{item.asset_name}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4 text-slate-500">{item.asset_type ?? '—'}</td>
-                                            <td className="px-4 py-4 font-mono text-slate-600">{`${item.issuer.slice(0, 6)}...${item.issuer.slice(-4)}`}</td>
-                                            <td className="px-4 py-4 text-slate-600">{item.token_minted > 0 ? `${item.token_minted} NFT` : '—'}</td>
-                                            <td className="px-6 py-4 text-right text-slate-400 font-mono">#{item.asset_id}</td>
+                                            <td className="px-4 py-4 text-dim font-serif">{item.asset_type ?? '—'}</td>
+                                            <td className="px-4 py-4 font-mono text-muted text-xs">
+                                                {`${item.issuer.slice(0, 6)}…${item.issuer.slice(-4)}`}
+                                            </td>
+                                            <td className="px-4 py-4 font-mono text-muted text-xs">
+                                                {item.token_minted > 0 ? (
+                                                    <span className="text-status-live">{item.token_minted} token</span>
+                                                ) : '—'}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-mono text-dim text-xs">
+                                                #{item.asset_id}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

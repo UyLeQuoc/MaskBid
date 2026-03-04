@@ -367,8 +367,8 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
     // ================================================================
 
     /**
-     * @notice Set auction startTime to block.timestamp + 30 seconds.
-     *         Useful for testing without waiting for the original start time.
+     * @notice Set auction startTime to block.timestamp - 30 seconds (already started).
+     *         Immediately activates the auction for bidding in demo/hackathon scenarios.
      */
     function setAuctionStartSoon(uint256 auctionId) external {
         Auction storage auction = auctions[auctionId];
@@ -377,12 +377,12 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
             auction.state == AuctionState.Created || auction.state == AuctionState.Active,
             "Cannot update ended or cancelled auction"
         );
-        uint256 newStartTime = block.timestamp + 30;
+        uint256 newStartTime = block.timestamp - 30;
         require(newStartTime < auction.endTime, "New start time must be before end time");
         auction.startTime = newStartTime;
-        // Revert to Created so bidding gate re-evaluates properly
-        if (auction.state == AuctionState.Active) {
-            auction.state = AuctionState.Created;
+        // Transition to Active since startTime is now in the past
+        if (auction.state == AuctionState.Created) {
+            auction.state = AuctionState.Active;
         }
         emit AuctionStartTimeUpdated(auctionId, newStartTime);
     }

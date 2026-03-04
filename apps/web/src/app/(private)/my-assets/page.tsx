@@ -1,9 +1,8 @@
 'use client'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSDK } from '@metamask/sdk-react'
 import { useQueryState } from 'nuqs'
-import { Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createWalletClient, createPublicClient, custom, http, parseAbi } from 'viem'
 import { sepolia } from 'viem/chains'
@@ -41,60 +40,84 @@ function deriveStatus(a: AssetState): string {
     return 'Pending Verification'
 }
 
-const STATUS_COLORS: Record<string, string> = {
-    'Minted': 'text-green-600 bg-green-100 border-green-200',
-    'Verified': 'text-green-600 bg-green-100 border-green-200',
-    'Pending Verification': 'text-orange-500 bg-orange-50 border-orange-200',
-    'Redeemed': 'text-slate-500 bg-slate-100 border-slate-200',
-    'In Auction': 'text-blue-600 bg-blue-50 border-blue-200',
+const STATUS_STYLES: Record<string, string> = {
+    Minted: 'border-status-live/30 text-status-live',
+    Verified: 'border-status-won/30 text-status-won',
+    'Pending Verification': 'border-gold/30 text-gold',
+    Redeemed: 'border-status-ended/30 text-status-ended',
+    'In Auction': 'border-status-upcoming/30 text-status-upcoming',
 }
 
 const TIMELINE = ['Registered', 'Pending Verification', 'Verified', 'Minted']
 const STATUS_STEP: Record<string, number> = {
-    'Registered': 0,
+    Registered: 0,
     'Pending Verification': 1,
-    'Verified': 2,
-    'Minted': 3,
-    'Redeemed': 3,
+    Verified: 2,
+    Minted: 3,
+    Redeemed: 3,
     'In Auction': 3,
 }
 
-type AssetIcon = Record<string, string>
-const TYPE_ICON: AssetIcon = {
+const TYPE_ICON: Record<string, string> = {
     watch: '⌚', art: '🎨', gold: '🥇', 'real estate': '🏠', other: '📦',
 }
 
-function AssetList({ assets, loading, onSelect }: { assets: AssetState[], loading: boolean, onSelect: (id: string) => void }) {
+// ---------------------------------------------------------------------------
+// Diamond ornament
+// ---------------------------------------------------------------------------
+function Diamond({ size = 'sm' }: { size?: 'sm' | 'xs' }) {
+    return <span className={size === 'xs' ? 'text-gold/30 text-[6px]' : 'text-gold/40 text-[8px]'}>&#9670;</span>
+}
+
+// ---------------------------------------------------------------------------
+// Status badge
+// ---------------------------------------------------------------------------
+function StatusBadge({ status }: { status: string }) {
     return (
-        <div className="bg-slate-50 min-h-screen text-slate-900">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                <div className="flex items-center justify-between mb-8">
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-serif tracking-wider px-3 py-1 border ${STATUS_STYLES[status] ?? 'border-border text-dim'}`}>
+            <Diamond size="xs" />
+            {status}
+        </span>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Asset list
+// ---------------------------------------------------------------------------
+function AssetList({ assets, loading, onSelect }: { assets: AssetState[]; loading: boolean; onSelect: (id: string) => void }) {
+    return (
+        <div className="min-h-screen bg-background text-foreground pt-24 pb-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-10">
                     <div>
-                        <h1 className="text-3xl font-bold mb-1">My Assets</h1>
-                        <p className="text-slate-500">Manage your registered physical assets.</p>
+                        <p className="text-gold/50 font-mono text-xs tracking-widest uppercase mb-2">MaskBid</p>
+                        <h1 className="font-serif text-4xl font-semibold text-foreground mb-2">My Assets</h1>
+                        <div className="flex items-center gap-2 text-dim text-sm font-serif">
+                            <Diamond size="xs" />
+                            <span>Manage your registered physical assets.</span>
+                        </div>
                     </div>
                     <Link
                         href="/my-assets/register"
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-5 py-2.5 rounded-2xl transition-colors"
+                        className="btn-ornate text-gold font-serif tracking-wider px-6 py-2.5 text-sm shrink-0"
                     >
                         + Register New Asset
                     </Link>
                 </div>
 
                 {loading && (
-                    <div className="flex items-center justify-center py-20">
-                        <svg className="animate-spin w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
+                    <div className="flex items-center justify-center py-24">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
+                        <span className="ml-3 text-dim font-serif text-sm">Loading assets…</span>
                     </div>
                 )}
 
                 {!loading && assets.length === 0 && (
-                    <div className="text-center py-20 text-slate-400">
-                        <p className="text-4xl mb-4">📦</p>
-                        <p className="font-medium">No assets registered yet.</p>
-                        <p className="text-sm mt-1">Register your first physical asset to get started.</p>
+                    <div className="text-center py-24">
+                        <p className="text-4xl mb-4">&#9670;</p>
+                        <p className="font-serif text-foreground text-lg mb-1">No assets registered yet.</p>
+                        <p className="text-dim text-sm font-serif">Register your first physical asset to get started.</p>
                     </div>
                 )}
 
@@ -104,27 +127,29 @@ function AssetList({ assets, loading, onSelect }: { assets: AssetState[], loadin
                             const status = deriveStatus(asset)
                             const icon = TYPE_ICON[asset.asset_type?.toLowerCase() ?? ''] ?? '📦'
                             return (
-                                <div key={asset.asset_id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:border-slate-300 transition-colors">
-                                    <div className="h-36 bg-slate-100 flex items-center justify-center text-6xl">
+                                <div key={asset.asset_id} className="card-hover border border-border overflow-hidden">
+                                    <div className="h-32 bg-surface flex items-center justify-center text-6xl border-b border-border">
                                         {icon}
                                     </div>
                                     <div className="p-5">
-                                        <div className="flex items-center gap-2 mb-2">
+                                        <div className="flex flex-wrap items-center gap-2 mb-3">
                                             {asset.asset_type && (
-                                                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{asset.asset_type}</span>
+                                                <span className="text-[10px] font-serif tracking-wider text-dim px-2 py-0.5 border border-gold/10">
+                                                    {asset.asset_type}
+                                                </span>
                                             )}
-                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${STATUS_COLORS[status]}`}>
-                                                {status}
-                                            </span>
+                                            <StatusBadge status={status} />
                                         </div>
-                                        <h3 className="text-slate-900 font-semibold mb-1">{asset.asset_name}</h3>
-                                        <p className="text-slate-400 text-xs mb-4">
+
+                                        <h3 className="font-serif text-foreground font-semibold mb-1 truncate">{asset.asset_name}</h3>
+                                        <p className="text-dim text-xs font-serif mb-4">
                                             Registered {new Date(asset.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </p>
+
                                         <button
                                             type="button"
                                             onClick={() => onSelect(asset.asset_id)}
-                                            className="block w-full text-center bg-slate-100 border border-slate-200 text-slate-900 text-sm font-medium py-2 rounded-2xl transition-colors hover:bg-slate-200"
+                                            className="btn-ornate-ghost w-full text-muted hover:text-foreground font-serif tracking-wider text-sm py-2"
                                         >
                                             View Details
                                         </button>
@@ -139,7 +164,10 @@ function AssetList({ assets, loading, onSelect }: { assets: AssetState[], loadin
     )
 }
 
-function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void }) {
+// ---------------------------------------------------------------------------
+// Asset detail
+// ---------------------------------------------------------------------------
+function AssetDetail({ asset, onBack }: { asset: AssetState; onBack: () => void }) {
     const { account } = useSDK()
     const router = useRouter()
     const [redeeming, setRedeeming] = useState(false)
@@ -159,6 +187,7 @@ function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void 
         try {
             const walletClient = createWalletClient({
                 chain: sepolia,
+                // biome-ignore lint/suspicious/noExplicitAny: browser provider
                 transport: custom((window as any).ethereum),
             })
             const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC_URL) })
@@ -186,33 +215,41 @@ function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void 
     }
 
     return (
-        <div className="bg-slate-50 min-h-screen text-slate-900">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+        <div className="min-h-screen bg-background text-foreground pt-24 pb-20">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6">
                 <button
                     type="button"
                     onClick={onBack}
-                    className="text-blue-600 hover:text-blue-700 text-sm mb-6 inline-block transition-colors"
+                    className="text-gold/60 hover:text-gold text-sm font-serif tracking-wider transition-colors duration-200 mb-8 inline-block"
                 >
-                    ← Back to My Assets
+                    <span className="text-gold/30 text-[8px] mr-1">&#9670;</span>
+                    Back to My Assets
                 </button>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                    <div className="h-64 bg-white border border-slate-200 rounded-3xl flex items-center justify-center text-8xl">
+                    {/* Asset icon */}
+                    <div className="frame-ornate h-64 flex items-center justify-center text-8xl">
                         {icon}
                     </div>
 
+                    {/* Info */}
                     <div>
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
                             {asset.asset_type && (
-                                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{asset.asset_type}</span>
+                                <span className="text-[10px] font-serif tracking-wider text-dim px-2 py-0.5 border border-gold/10">
+                                    {asset.asset_type}
+                                </span>
                             )}
+                            <StatusBadge status={status} />
                         </div>
-                        <h1 className="text-2xl font-bold mb-4">{asset.asset_name}</h1>
+
+                        <h1 className="font-serif text-2xl font-semibold text-foreground mb-3">{asset.asset_name}</h1>
+
                         {asset.description && (
-                            <p className="text-slate-600 text-sm leading-relaxed mb-6">{asset.description}</p>
+                            <p className="text-muted font-serif text-sm leading-relaxed mb-5">{asset.description}</p>
                         )}
 
-                        <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 text-sm mb-4">
+                        <div className="frame-ornate divide-y divide-border text-sm mb-4">
                             {[
                                 { label: 'Status', value: status },
                                 { label: 'Type', value: asset.asset_type },
@@ -220,46 +257,45 @@ function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void 
                                 { label: 'On-chain ID', value: `#${asset.asset_id}` },
                             ].filter(r => r.value).map(row => (
                                 <div key={row.label} className="flex justify-between px-4 py-3">
-                                    <span className="text-slate-400">{row.label}</span>
-                                    <span className="text-slate-900 font-medium">{row.value}</span>
+                                    <span className="text-dim font-serif tracking-wide text-xs">{row.label}</span>
+                                    <span className="text-foreground font-mono text-xs">{row.value}</span>
                                 </div>
                             ))}
                         </div>
 
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2 text-red-700 text-sm mb-3">
+                            <div className="border border-status-error/30 px-4 py-2 text-status-error font-serif text-sm mb-3">
                                 {error}
                             </div>
                         )}
 
-                        {(status === 'Verified' || status === 'Minted') && (
-                            <button
-                                type="button"
-                                onClick={() => router.push(`/auctions/create?assetId=${asset.asset_id}`)}
-                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl transition-colors"
-                            >
-                                Create Auction
-                            </button>
-                        )}
+                        <div className="space-y-2">
+                            {(status === 'Verified' || status === 'Minted') && (
+                                <button
+                                    type="button"
+                                    onClick={() => router.push(`/auctions/create?assetId=${asset.asset_id}`)}
+                                    className="btn-ornate w-full text-gold font-serif tracking-wider py-3"
+                                >
+                                    Create Auction
+                                </button>
+                            )}
 
-                        {canRedeem && !redeemTxHash && (
-                            <button
-                                type="button"
-                                onClick={handleRedeem}
-                                disabled={redeeming || redeemConfirming}
-                                className="w-full bg-slate-800 hover:bg-slate-700 disabled:bg-slate-400 text-white font-semibold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2"
-                            >
-                                {(redeeming || redeemConfirming) ? (
-                                    <>
-                                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                        </svg>
-                                        {redeemConfirming ? 'Confirming on-chain…' : 'Waiting for MetaMask…'}
-                                    </>
-                                ) : 'Redeem NFT'}
-                            </button>
-                        )}
+                            {canRedeem && !redeemTxHash && (
+                                <button
+                                    type="button"
+                                    onClick={handleRedeem}
+                                    disabled={redeeming || redeemConfirming}
+                                    className="btn-ornate-ghost w-full text-muted hover:text-foreground font-serif tracking-wider py-3 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {(redeeming || redeemConfirming) ? (
+                                        <>
+                                            <span className="animate-spin w-4 h-4 border-2 border-border border-t-muted rounded-full inline-block" />
+                                            {redeemConfirming ? 'Confirming on-chain…' : 'Waiting for MetaMask…'}
+                                        </>
+                                    ) : 'Redeem Asset Token'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -273,31 +309,34 @@ function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void 
                 )}
 
                 {/* Timeline */}
-                <div className="bg-white border border-slate-200 rounded-3xl p-6">
-                    <h2 className="text-slate-900 font-semibold mb-6">Asset Timeline</h2>
+                <div className="frame-ornate p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-px flex-1 bg-gold/10" />
+                        <h2 className="font-serif text-sm text-muted tracking-wider uppercase">Asset Timeline</h2>
+                        <div className="h-px flex-1 bg-gold/10" />
+                    </div>
+
                     <div className="flex items-center">
                         {TIMELINE.map((step, i) => (
                             <div key={step} className="flex items-center flex-1 last:flex-none">
                                 <div className="flex flex-col items-center">
-                                    <div
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                                            i < currentStep
-                                                ? 'bg-green-500 text-white'
-                                                : i === currentStep
-                                                ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                                                : 'bg-slate-100 text-slate-400'
-                                        }`}
-                                    >
+                                    <div className={`w-8 h-8 flex items-center justify-center text-xs font-mono font-bold border ${
+                                        i < currentStep
+                                            ? 'border-status-live/40 text-status-live bg-status-live/10'
+                                            : i === currentStep
+                                            ? 'border-gold/40 text-gold bg-gold/10'
+                                            : 'border-border text-dim'
+                                    }`}>
                                         {i < currentStep ? '✓' : i + 1}
                                     </div>
-                                    <span className={`text-xs mt-2 text-center max-w-16 leading-tight ${
-                                        i <= currentStep ? 'text-slate-700' : 'text-slate-400'
+                                    <span className={`text-xs mt-2 text-center max-w-16 leading-tight font-serif ${
+                                        i <= currentStep ? 'text-muted' : 'text-dim'
                                     }`}>
                                         {step}
                                     </span>
                                 </div>
                                 {i < TIMELINE.length - 1 && (
-                                    <div className={`flex-1 h-0.5 mx-2 mb-6 ${i < currentStep ? 'bg-green-500' : 'bg-slate-200'}`} />
+                                    <div className={`flex-1 h-px mx-2 mb-6 ${i < currentStep ? 'bg-status-live/30' : 'bg-border'}`} />
                                 )}
                             </div>
                         ))}
@@ -308,6 +347,9 @@ function AssetDetail({ asset, onBack }: { asset: AssetState, onBack: () => void 
     )
 }
 
+// ---------------------------------------------------------------------------
+// Page shell
+// ---------------------------------------------------------------------------
 function MyAssetsPageInner() {
     const { account, connected } = useSDK()
     const [assetId, setAssetId] = useQueryState('assetId')
@@ -326,10 +368,7 @@ function MyAssetsPageInner() {
 
     const selected = assets.find(a => a.asset_id === assetId)
 
-    if (selected) {
-        return <AssetDetail asset={selected} onBack={() => setAssetId(null)} />
-    }
-
+    if (selected) return <AssetDetail asset={selected} onBack={() => setAssetId(null)} />
     return <AssetList assets={assets} loading={loading} onSelect={id => setAssetId(id)} />
 }
 

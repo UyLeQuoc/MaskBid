@@ -3,9 +3,10 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useQueryState } from 'nuqs'
 import { useRouter } from 'next/navigation'
-import { BrowserProvider, Contract, type Eip1193Provider } from 'ethers'
+import { BrowserProvider, Contract, Interface, type Eip1193Provider } from 'ethers'
 import BidModal from '@/components/auction/BidModal'
 import { MaskBidAuctionABI } from '@/abis/MaskBidAuction'
+import { CRECommandBox } from '@/components/CRECommandBox'
 import { env } from '@/configs/env'
 import { useAuctions, type Auction } from '@/hooks/useAuctions'
 
@@ -54,7 +55,38 @@ type StatusTab = 'all' | 'upcoming' | 'live' | 'ended'
 function fmtPrice(n: number) { return (n ?? 0).toLocaleString() }
 
 // ---------------------------------------------------------------------------
-// Bid target — matches BidModal duck type
+// Diamond ornament
+// ---------------------------------------------------------------------------
+function Diamond({ size = 'sm' }: { size?: 'sm' | 'xs' }) {
+    return <span className={size === 'xs' ? 'text-gold/30 text-[6px]' : 'text-gold/40 text-[8px]'}>&#9670;</span>
+}
+
+// ---------------------------------------------------------------------------
+// Status badge
+// ---------------------------------------------------------------------------
+function PhaseBadge({ phase }: { phase: Phase }) {
+    if (phase === 'live') return (
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-serif tracking-wider px-3 py-1 border border-status-live/30 text-status-live">
+            <span className="w-1 h-1 rounded-full bg-status-live animate-pulse inline-block" />
+            Live
+        </span>
+    )
+    if (phase === 'upcoming') return (
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-serif tracking-wider px-3 py-1 border border-status-upcoming/30 text-status-upcoming">
+            <Diamond size="xs" />
+            Upcoming
+        </span>
+    )
+    return (
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-serif tracking-wider px-3 py-1 border border-status-ended/30 text-status-ended">
+            <Diamond size="xs" />
+            Ended
+        </span>
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Bid target
 // ---------------------------------------------------------------------------
 type BidTarget = {
     id: string
@@ -77,20 +109,15 @@ function toBidTarget(a: Auction, now: number): BidTarget {
 }
 
 // ---------------------------------------------------------------------------
-// Countdown cell — re-renders via parent now tick
+// Countdown
 // ---------------------------------------------------------------------------
 function Countdown({ targetMs, phase }: { targetMs: number; phase: Phase }) {
-    const remaining = targetMs
-    if (phase === 'ended') {
-        return <span className="text-slate-400 font-medium text-sm">Ended</span>
-    }
-    const urgent = phase === 'live' && remaining < 30 * 60 * 1000
-    const color = phase === 'upcoming'
-        ? 'text-indigo-500'
-        : urgent ? 'text-red-500' : 'text-orange-500'
+    if (phase === 'ended') return <span className="font-mono text-sm text-status-ended">Ended</span>
+    const urgent = phase === 'live' && targetMs < 30 * 60 * 1000
+    const color = phase === 'upcoming' ? 'text-status-upcoming' : urgent ? 'text-status-error' : 'text-gold'
     return (
         <span className={`font-mono font-bold text-sm ${color} ${urgent ? 'animate-pulse' : ''}`}>
-            {formatMs(remaining)}
+            {formatMs(targetMs)}
         </span>
     )
 }
@@ -98,53 +125,32 @@ function Countdown({ targetMs, phase }: { targetMs: number; phase: Phase }) {
 // ---------------------------------------------------------------------------
 // Auction card
 // ---------------------------------------------------------------------------
-function AuctionCard({
-    auction, now, onView, onBid,
-}: {
+function AuctionCard({ auction, now, onView, onBid }: {
     auction: Auction; now: number; onView: () => void; onBid: () => void
 }) {
     const phase = getPhase(auction, now)
     const startsAt = new Date(auction.started_at).getTime()
     const endsAt = new Date(auction.ends_at).getTime()
     const targetMs = phase === 'upcoming' ? startsAt - now : endsAt - now
-
     const name = auction.asset_name ?? `Asset #${auction.token_id ?? auction.asset_id}`
     const icon = TYPE_ICON[(auction.asset_type ?? '').toLowerCase()] ?? '📦'
-
-    const phaseBadge = {
-        upcoming: <span className="flex items-center gap-1 text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">⏳ Upcoming</span>,
-        live: (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
-                Live
-            </span>
-        ),
-        ended: <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Ended</span>,
-    }[phase]
-
     const countdownLabel = phase === 'upcoming' ? 'Starts in' : phase === 'live' ? 'Ends in' : 'Status'
 
     return (
         <button
             type="button"
-            className={`bg-white border rounded-3xl overflow-hidden transition-all hover:shadow-md cursor-pointer group w-full text-left ${
-                phase === 'live' ? 'border-green-200 hover:border-green-300' :
-                phase === 'upcoming' ? 'border-indigo-200 hover:border-indigo-300' :
-                'border-slate-200 hover:border-slate-300'
-            }`}
+            className="card-hover border border-border w-full text-left group cursor-pointer"
             onClick={onView}
         >
-            {/* Image area */}
-            <div className={`h-36 flex items-center justify-center text-6xl relative ${
-                phase === 'live' ? 'bg-green-50' :
-                phase === 'upcoming' ? 'bg-indigo-50' :
-                'bg-slate-100'
-            }`}>
+            {/* Asset icon area */}
+            <div className="h-32 bg-surface flex items-center justify-center text-5xl relative border-b border-border">
                 {icon}
-                <div className="absolute top-3 left-3">{phaseBadge}</div>
+                <div className="absolute top-3 left-3">
+                    <PhaseBadge phase={phase} />
+                </div>
                 {auction.asset_type && (
                     <div className="absolute top-3 right-3">
-                        <span className="text-xs text-slate-500 bg-white/80 px-2 py-0.5 rounded-full border border-slate-200">
+                        <span className="text-[10px] font-serif tracking-wider text-dim px-2 py-1 border border-gold/10">
                             {auction.asset_type}
                         </span>
                     </div>
@@ -152,33 +158,38 @@ function AuctionCard({
             </div>
 
             <div className="p-4">
-                <h3 className="font-semibold text-slate-900 mb-3 truncate">{name}</h3>
+                <h3 className="font-serif text-foreground font-semibold mb-3 truncate">{name}</h3>
+
+                {/* Divider */}
+                <div className="flex items-center gap-2 mb-3" aria-hidden="true">
+                    <div className="flex-1 h-px bg-gold/10" />
+                    <Diamond size="xs" />
+                    <div className="flex-1 h-px bg-gold/10" />
+                </div>
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-4 text-xs">
                     <div>
-                        <p className="text-slate-400">Reserve Price</p>
-                        <p className="text-slate-900 font-bold text-sm">{fmtPrice(auction.reserve_price ?? auction.start_price)} <span className="font-normal text-slate-400">USDC</span></p>
+                        <p className="text-dim font-serif tracking-wide mb-0.5">Reserve</p>
+                        <p className="font-mono text-foreground font-semibold">{fmtPrice(auction.reserve_price ?? auction.start_price)} <span className="text-dim font-normal">USDC</span></p>
                     </div>
                     <div className="text-right">
-                        <p className="text-slate-400">{countdownLabel}</p>
+                        <p className="text-dim font-serif tracking-wide mb-0.5">{countdownLabel}</p>
                         <Countdown targetMs={targetMs} phase={phase} />
                     </div>
                     <div>
-                        <p className="text-slate-400">Deposit</p>
-                        <p className="text-amber-600 font-semibold text-sm">{fmtPrice(auction.deposit_required ?? 0)} USDC</p>
+                        <p className="text-dim font-serif tracking-wide mb-0.5">Deposit</p>
+                        <p className="font-mono text-gold font-semibold">{fmtPrice(auction.deposit_required ?? 0)} <span className="text-dim font-normal">USDC</span></p>
                     </div>
                     <div className="text-right">
-                        <p className="text-slate-400">Sealed Bids</p>
-                        <p className="text-slate-600 font-medium text-sm flex items-center justify-end gap-1">
-                            🔒 {auction.bid_count}
-                        </p>
+                        <p className="text-dim font-serif tracking-wide mb-0.5">Sealed Bids</p>
+                        <p className="font-mono text-foreground font-semibold">🔒 {auction.bid_count}</p>
                     </div>
                 </div>
 
                 {phase === 'ended' && auction.winner_address && (
-                    <div className="mb-3 bg-slate-50 rounded-xl px-3 py-2 text-xs">
-                        <span className="text-slate-400">Winner: </span>
-                        <span className="font-mono text-slate-700">
+                    <div className="mb-3 border border-status-won/20 px-3 py-2">
+                        <span className="text-dim text-xs font-serif">Winner: </span>
+                        <span className="font-mono text-status-won text-xs">
                             {auction.winner_address.slice(0, 8)}…{auction.winner_address.slice(-6)}
                         </span>
                     </div>
@@ -188,7 +199,7 @@ function AuctionCard({
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onView() }}
-                        className="flex-1 text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-900 py-2 rounded-2xl transition-colors"
+                        className="btn-ornate-ghost flex-1 text-sm font-serif tracking-wider text-muted hover:text-foreground py-2"
                     >
                         Details
                     </button>
@@ -196,13 +207,13 @@ function AuctionCard({
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onBid() }}
-                            className="flex-1 text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-2xl transition-colors"
+                            className="btn-ornate flex-1 text-sm font-serif tracking-wider text-gold py-2"
                         >
                             Place Bid
                         </button>
                     )}
                     {phase === 'upcoming' && (
-                        <span className="flex-1 text-sm font-medium bg-indigo-50 text-indigo-400 py-2 rounded-2xl text-center cursor-not-allowed">
+                        <span className="flex-1 text-sm font-serif tracking-wider text-status-upcoming/50 border border-status-upcoming/10 py-2 text-center cursor-not-allowed">
                             Not Open Yet
                         </span>
                     )}
@@ -213,12 +224,14 @@ function AuctionCard({
 }
 
 // ---------------------------------------------------------------------------
-// Test controls (hackathon demo) — set start/end to now+30s on-chain
+// Test controls
 // ---------------------------------------------------------------------------
+type TestAction = { txHash: string; eventIndex: number; label: string }
+
 function TestControls({ auction, phase }: { auction: Auction; phase: Phase }) {
     const [pending, setPending] = useState<'start' | 'end' | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [lastTx, setLastTx] = useState<string | null>(null)
+    const [lastAction, setLastAction] = useState<TestAction | null>(null)
 
     if (phase === 'ended' || !auction.contract_auction_id) return null
 
@@ -229,14 +242,26 @@ function TestControls({ auction, phase }: { auction: Auction; phase: Phase }) {
         if (!eth) { setError('MetaMask not found'); return }
         setPending(kind)
         setError(null)
+        setLastAction(null)
         try {
             const provider = new BrowserProvider(eth)
             const signer = await provider.getSigner()
             const contract = new Contract(contractAddress, MaskBidAuctionABI, signer)
             const auctionIdBig = BigInt(auction.contract_auction_id ?? 0)
             const tx = await contract[fnName](auctionIdBig)
-            await tx.wait()
-            setLastTx(tx.hash as string)
+            const receipt = await tx.wait()
+
+            const iface = new Interface(MaskBidAuctionABI)
+            const targetEvent = kind === 'start' ? 'AuctionStartTimeUpdated' : 'AuctionEndTimeUpdated'
+            let eventIndex = 0
+            for (let i = 0; i < receipt.logs.length; i++) {
+                try {
+                    const parsed = iface.parseLog({ topics: [...receipt.logs[i].topics], data: receipt.logs[i].data })
+                    if (parsed?.name === targetEvent) { eventIndex = i; break }
+                } catch { /* skip */ }
+            }
+
+            setLastAction({ txHash: receipt.hash, eventIndex, label: targetEvent })
         } catch (e) {
             setError((e as Error).message)
         } finally {
@@ -245,56 +270,68 @@ function TestControls({ auction, phase }: { auction: Auction; phase: Phase }) {
     }
 
     return (
-        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-                <span className="text-amber-600 text-sm font-semibold">🧪 Test Controls</span>
-                <span className="text-xs text-amber-500">(admin only — hackathon demo)</span>
+        <div className="frame-ornate-dark p-5 space-y-4">
+            <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gold/10" />
+                <span className="font-serif text-xs text-gold/60 tracking-widest uppercase">Test Controls</span>
+                <Diamond size="xs" />
+                <span className="font-serif text-xs text-dim tracking-wider">admin · hackathon demo</span>
+                <div className="flex-1 h-px bg-gold/10" />
             </div>
-            <p className="text-xs text-amber-600 mb-4">
-                Both functions set the time to <code className="bg-amber-100 px-1 rounded">block.timestamp + 30s</code> on-chain,
-                then the CRE workflow syncs the new time to Supabase.
+
+            <p className="text-xs text-dim font-serif leading-relaxed">
+                <span className="text-gold/60">Set Start</span> sets startTime to{' '}
+                <code className="font-mono text-gold/50 text-[10px]">now − 30s</code> (immediately active).{' '}
+                <span className="text-gold/60">Set End</span> sets endTime to{' '}
+                <code className="font-mono text-gold/50 text-[10px]">now + 30s</code> (ends soon).
+                Run CRE after each to sync Supabase.
             </p>
+
             <div className="flex gap-3">
                 <button
                     type="button"
                     disabled={pending !== null}
                     onClick={() => call('setAuctionStartSoon', 'start')}
-                    className="flex-1 text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-300 text-white py-2.5 rounded-2xl transition-colors"
+                    className="btn-ornate flex-1 text-sm font-serif tracking-wider text-gold py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                     {pending === 'start' ? (
                         <span className="flex items-center justify-center gap-2">
-                            <span className="animate-spin w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full inline-block" />
+                            <span className="animate-spin w-3.5 h-3.5 border-2 border-gold/30 border-t-gold rounded-full inline-block" />
                             Setting…
                         </span>
-                    ) : 'Set Start → now+30s'}
+                    ) : 'Set Start → now−30s'}
                 </button>
                 <button
                     type="button"
                     disabled={pending !== null}
                     onClick={() => call('setAuctionEndSoon', 'end')}
-                    className="flex-1 text-sm font-semibold bg-orange-500 hover:bg-orange-400 disabled:bg-orange-300 text-white py-2.5 rounded-2xl transition-colors"
+                    className="btn-ornate-ghost flex-1 text-sm font-serif tracking-wider text-muted hover:text-foreground py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                     {pending === 'end' ? (
                         <span className="flex items-center justify-center gap-2">
-                            <span className="animate-spin w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full inline-block" />
+                            <span className="animate-spin w-3.5 h-3.5 border-2 border-border border-t-muted rounded-full inline-block" />
                             Setting…
                         </span>
                     ) : 'Set End → now+30s'}
                 </button>
             </div>
-            {error && <p className="text-red-600 text-xs mt-3 break-all">{error}</p>}
-            {lastTx && (
-                <p className="text-amber-600 text-xs mt-3">
-                    ✓ Tx: <span className="font-mono">{lastTx.slice(0, 16)}…</span>
-                    {' '}— now run <code className="bg-amber-100 px-1 rounded">cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation</code>
-                </p>
+
+            {error && <p className="text-status-error text-xs break-all font-mono">{error}</p>}
+
+            {lastAction && (
+                <CRECommandBox
+                    txHash={lastAction.txHash}
+                    command="cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation"
+                    steps={[{ label: lastAction.label, eventIndex: lastAction.eventIndex }]}
+                    onDone={() => setLastAction(null)}
+                />
             )}
         </div>
     )
 }
 
 // ---------------------------------------------------------------------------
-// Detail view
+// Auction detail
 // ---------------------------------------------------------------------------
 function AuctionDetail({ auction, now, onBack, onBid }: {
     auction: Auction; now: number; onBack: () => void; onBid: () => void
@@ -307,35 +344,36 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
     const name = auction.asset_name ?? `Asset #${auction.token_id ?? auction.asset_id}`
     const icon = TYPE_ICON[(auction.asset_type ?? '').toLowerCase()] ?? '📦'
 
-    const phaseBg = phase === 'live' ? 'bg-green-50' : phase === 'upcoming' ? 'bg-indigo-50' : 'bg-slate-100'
-
     return (
-        <div className="bg-slate-50 min-h-screen text-slate-900">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-                <button type="button" onClick={onBack} className="text-blue-600 hover:text-blue-700 text-sm mb-6 inline-block transition-colors">
-                    ← Back to Auctions
+        <div className="min-h-screen bg-background text-foreground pt-24 pb-20">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Back */}
+                <button
+                    type="button"
+                    onClick={onBack}
+                    className="text-gold/60 hover:text-gold text-sm font-serif tracking-wider transition-colors duration-200 mb-8 inline-block"
+                >
+                    <span className="text-gold/30 text-[8px] mr-1">&#9670;</span>
+                    Back to Auctions
                 </button>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    {/* Left col */}
+                    {/* Left column */}
                     <div className="lg:col-span-2 space-y-4">
-                        <div className={`h-64 ${phaseBg} border border-slate-200 rounded-3xl flex items-center justify-center text-8xl`}>
+                        {/* Asset icon */}
+                        <div className="frame-ornate h-64 flex items-center justify-center text-8xl">
                             {icon}
                         </div>
 
-                        {/* Countdown block */}
-                        <div className={`rounded-3xl p-5 border text-center ${
-                            phase === 'upcoming' ? 'bg-indigo-50 border-indigo-200' :
-                            phase === 'live' ? 'bg-green-50 border-green-200' :
-                            'bg-slate-100 border-slate-200'
-                        }`}>
-                            <p className="text-xs font-medium text-slate-500 mb-1">
+                        {/* Countdown */}
+                        <div className="frame-ornate p-5 text-center">
+                            <p className="text-xs font-serif tracking-widest uppercase text-dim mb-2">
                                 {phase === 'upcoming' ? 'Bidding opens in' : phase === 'live' ? 'Bidding closes in' : 'Auction ended'}
                             </p>
                             {phase !== 'ended' ? (
                                 <p className={`text-3xl font-mono font-bold ${
-                                    phase === 'upcoming' ? 'text-indigo-600' :
-                                    targetMs < 30 * 60 * 1000 ? 'text-red-500' : 'text-orange-500'
+                                    phase === 'upcoming' ? 'text-status-upcoming' :
+                                    targetMs < 30 * 60 * 1000 ? 'text-status-error' : 'text-gold'
                                 }`}>
                                     {formatMs(targetMs)}
                                 </p>
@@ -343,81 +381,81 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
                                 <div>
                                     {auction.winner_address ? (
                                         <>
-                                            <p className="text-sm text-slate-500 mb-1">Winner</p>
-                                            <p className="font-mono font-bold text-slate-900 text-sm break-all">{auction.winner_address}</p>
+                                            <p className="text-xs font-serif text-dim mb-1">Winner</p>
+                                            <p className="font-mono font-bold text-status-won text-sm break-all">{auction.winner_address}</p>
                                             {auction.winning_amount && (
-                                                <p className="text-xs text-slate-400 mt-1">Winning bid: {fmtPrice(auction.winning_amount)} USDC</p>
+                                                <p className="text-xs text-dim mt-1 font-mono">{fmtPrice(auction.winning_amount)} USDC</p>
                                             )}
                                         </>
                                     ) : (
-                                        <p className="text-sm text-slate-500">Awaiting resolution by Chainlink CRE</p>
+                                        <p className="text-sm font-serif text-dim">Awaiting resolution by Chainlink CRE</p>
                                     )}
                                 </div>
                             )}
                         </div>
 
                         {/* Meta */}
-                        <div className="bg-white border border-slate-200 rounded-3xl divide-y divide-slate-100 text-sm">
+                        <div className="frame-ornate divide-y divide-border text-sm">
                             {[
                                 { label: 'Seller', value: `${auction.seller_address.slice(0, 8)}…${auction.seller_address.slice(-6)}` },
-                                { label: 'Contract Auction ID', value: auction.contract_auction_id != null ? `#${auction.contract_auction_id}` : null },
+                                { label: 'Contract ID', value: auction.contract_auction_id != null ? `#${auction.contract_auction_id}` : null },
                                 { label: 'Asset ID', value: `#${auction.asset_id}` },
                                 { label: 'Token ID', value: auction.token_id != null ? `#${auction.token_id}` : null },
                                 { label: 'Start', value: new Date(auction.started_at).toLocaleString() },
                                 { label: 'End', value: new Date(auction.ends_at).toLocaleString() },
                             ].filter(r => r.value).map(r => (
                                 <div key={r.label} className="flex justify-between px-4 py-3 gap-4">
-                                    <span className="text-slate-400 shrink-0">{r.label}</span>
-                                    <span className="text-slate-800 font-medium font-mono text-right truncate">{r.value}</span>
+                                    <span className="text-dim font-serif tracking-wide text-xs shrink-0">{r.label}</span>
+                                    <span className="text-foreground font-mono text-xs text-right truncate">{r.value}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Right col */}
+                    {/* Right column */}
                     <div className="lg:col-span-3 space-y-4">
+                        {/* Title + badges */}
                         <div className="flex items-center gap-2 flex-wrap">
+                            <PhaseBadge phase={phase} />
                             {auction.asset_type && (
-                                <span className="text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+                                <span className="text-[10px] font-serif tracking-wider text-dim px-3 py-1 border border-gold/10">
                                     {auction.asset_type}
                                 </span>
                             )}
-                            {phase === 'live' && (
-                                <span className="flex items-center gap-1.5 text-xs font-semibold text-green-600 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
-                                    Live Auction
-                                </span>
-                            )}
-                            {phase === 'upcoming' && (
-                                <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full">⏳ Upcoming</span>
-                            )}
-                            {phase === 'ended' && (
-                                <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">Ended</span>
-                            )}
                         </div>
 
-                        <h1 className="text-3xl font-bold">{name}</h1>
+                        <h1 className="font-serif text-3xl font-semibold text-foreground">{name}</h1>
 
-                        {/* Stats grid */}
-                        <div className="bg-white border border-slate-200 rounded-3xl p-6">
+                        <div className="h-px bg-linear-to-r from-transparent via-gold/20 to-transparent" />
+
+                        {/* Stats */}
+                        <div className="frame-ornate p-6">
                             <div className="grid grid-cols-2 gap-6 mb-6">
                                 <div>
-                                    <p className="text-slate-400 text-xs mb-1">Reserve Price</p>
-                                    <p className="text-2xl font-bold">{fmtPrice(auction.reserve_price ?? auction.start_price)} <span className="text-base font-normal text-slate-400">USDC</span></p>
-                                    <p className="text-xs text-slate-400 mt-0.5">Minimum to qualify</p>
+                                    <p className="text-dim font-serif text-xs tracking-widest uppercase mb-1">Reserve Price</p>
+                                    <p className="font-mono text-2xl font-bold text-foreground">
+                                        {fmtPrice(auction.reserve_price ?? auction.start_price)}
+                                        <span className="text-sm font-normal text-dim ml-1">USDC</span>
+                                    </p>
+                                    <p className="text-xs text-dim font-serif mt-0.5">Minimum to qualify</p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-400 text-xs mb-1">Required Deposit</p>
-                                    <p className="text-2xl font-bold text-amber-600">{fmtPrice(auction.deposit_required ?? 0)} <span className="text-base font-normal text-slate-400">USDC</span></p>
-                                    <p className="text-xs text-slate-400 mt-0.5">Refunded to losers</p>
+                                    <p className="text-dim font-serif text-xs tracking-widest uppercase mb-1">Required Deposit</p>
+                                    <p className="font-mono text-2xl font-bold text-gold">
+                                        {fmtPrice(auction.deposit_required ?? 0)}
+                                        <span className="text-sm font-normal text-dim ml-1">USDC</span>
+                                    </p>
+                                    <p className="text-xs text-dim font-serif mt-0.5">Refunded to losers</p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-400 text-xs mb-1">Sealed Bids</p>
-                                    <p className="text-xl font-bold text-slate-900 flex items-center gap-1.5">🔒 {auction.bid_count}</p>
+                                    <p className="text-dim font-serif text-xs tracking-widest uppercase mb-1">Sealed Bids</p>
+                                    <p className="font-mono text-xl font-bold text-foreground flex items-center gap-1.5">
+                                        🔒 {auction.bid_count}
+                                    </p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-400 text-xs mb-1">Status</p>
-                                    <p className="text-xl font-bold capitalize text-slate-900">{auction.status}</p>
+                                    <p className="text-dim font-serif text-xs tracking-widest uppercase mb-1">Status</p>
+                                    <p className="font-serif text-xl font-semibold text-foreground capitalize">{auction.status}</p>
                                 </div>
                             </div>
 
@@ -425,36 +463,40 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
                                 <button
                                     type="button"
                                     onClick={onBid}
-                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-2xl transition-colors text-base"
+                                    className="btn-ornate w-full text-gold font-serif tracking-wider py-3.5 text-base"
                                 >
                                     Place Sealed Bid
                                 </button>
                             )}
                             {phase === 'upcoming' && (
-                                <div className="w-full bg-indigo-50 border border-indigo-200 text-indigo-400 font-semibold py-3.5 rounded-2xl text-center text-base">
+                                <div className="w-full border border-status-upcoming/20 text-status-upcoming/60 font-serif tracking-wider py-3.5 text-center text-sm">
                                     Bidding opens in {formatMs(targetMs)}
                                 </div>
                             )}
                             {phase === 'ended' && (
-                                <div className="w-full bg-slate-50 border border-slate-200 text-slate-400 font-semibold py-3.5 rounded-2xl text-center text-base">
+                                <div className="w-full border border-border text-dim font-serif tracking-wider py-3.5 text-center text-sm">
                                     Auction Closed
                                 </div>
                             )}
                         </div>
 
                         {/* How it works */}
-                        <div className="bg-white border border-slate-200 rounded-3xl p-5">
-                            <h2 className="font-semibold mb-3 flex items-center gap-2">🔒 How Sealed Bidding Works</h2>
-                            <ol className="space-y-2 text-sm text-slate-600">
+                        <div className="frame-ornate p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="h-px flex-1 bg-gold/10" />
+                                <h2 className="font-serif text-sm text-muted tracking-wider uppercase">How Sealed Bidding Works</h2>
+                                <div className="h-px flex-1 bg-gold/10" />
+                            </div>
+                            <ol className="space-y-3 text-sm text-dim font-serif">
                                 {[
                                     `Deposit ${fmtPrice(auction.deposit_required ?? 0)} USDC — required from all bidders as security.`,
                                     `Enter your bid (min ${fmtPrice(auction.reserve_price ?? 0)} USDC). It is RSA-encrypted before going on-chain.`,
                                     'When the auction ends, Chainlink CRE decrypts all bids in a secure enclave and selects the winner.',
                                     'Winner pays bid amount and receives the RWA token. Losers claim their deposit back.',
                                 ].map((text, i) => (
-                                    // eslint-disable-next-line react/no-array-index-key
-                                    <li key={text.slice(0, 20)} className="flex gap-3">
-                                        <span className="text-blue-600 font-bold shrink-0">{i + 1}.</span>
+                                    // biome-ignore lint/suspicious/noArrayIndexKey: ordered steps
+                                    <li key={i} className="flex gap-3">
+                                        <span className="text-gold/50 font-serif font-bold shrink-0">{i + 1}.</span>
                                         {text}
                                     </li>
                                 ))}
@@ -470,11 +512,9 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
 }
 
 // ---------------------------------------------------------------------------
-// Main list
+// Auction list
 // ---------------------------------------------------------------------------
-function AuctionList({
-    onView, onBid,
-}: {
+function AuctionList({ onView, onBid }: {
     onView: (id: string) => void
     onBid: (target: BidTarget) => void
 }) {
@@ -485,10 +525,7 @@ function AuctionList({
     const [statusTab, setStatusTab] = useState<StatusTab>('all')
     const [typeFilter, setTypeFilter] = useState('All')
 
-    const enriched = useMemo(() => auctions.map(a => ({
-        ...a,
-        _phase: getPhase(a, now),
-    })), [auctions, now])
+    const enriched = useMemo(() => auctions.map(a => ({ ...a, _phase: getPhase(a, now) })), [auctions, now])
 
     const counts = useMemo(() => ({
         all: enriched.length,
@@ -514,61 +551,63 @@ function AuctionList({
     ]
 
     return (
-        <div className="bg-slate-50 min-h-screen text-slate-900">
+        <div className="min-h-screen bg-background text-foreground">
             {/* Header */}
-            <div className="bg-slate-900 text-white">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="flex items-start justify-between mb-6">
+            <div className="pt-24 pb-12 border-b border-gold/10">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-start justify-between mb-8">
                         <div>
-                            <h1 className="text-3xl font-bold mb-1">Auctions</h1>
-                            <p className="text-slate-400 text-sm flex items-center gap-2">
-                                🔒 All bids are sealed and encrypted — only Chainlink CRE reveals the winner.
-                            </p>
+                            <p className="text-gold/50 font-mono text-xs tracking-widest uppercase mb-2">MaskBid</p>
+                            <h1 className="font-serif text-4xl font-semibold text-foreground mb-2">Auctions</h1>
+                            <div className="flex items-center gap-2 text-dim text-sm font-serif">
+                                <Diamond size="xs" />
+                                <span>All bids are sealed and encrypted — only Chainlink CRE reveals the winner.</span>
+                            </div>
                         </div>
                         <button
                             type="button"
                             onClick={() => router.push('/auctions/create')}
-                            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-5 rounded-2xl transition-colors shrink-0"
+                            className="btn-ornate text-gold font-serif tracking-wider px-6 py-2.5 text-sm shrink-0"
                         >
                             + Create Auction
                         </button>
                     </div>
 
-                    {/* Stats row */}
+                    {/* Stats */}
                     <div className="grid grid-cols-4 gap-3">
                         {[
-                            { label: 'Total', value: counts.all, color: 'text-white' },
-                            { label: 'Live Now', value: counts.live, color: 'text-green-400' },
-                            { label: 'Upcoming', value: counts.upcoming, color: 'text-indigo-400' },
-                            { label: 'Ended', value: counts.ended, color: 'text-slate-400' },
+                            { label: 'Total', value: counts.all, color: 'text-foreground' },
+                            { label: 'Live Now', value: counts.live, color: 'text-status-live' },
+                            { label: 'Upcoming', value: counts.upcoming, color: 'text-status-upcoming' },
+                            { label: 'Ended', value: counts.ended, color: 'text-status-ended' },
                         ].map(s => (
-                            <div key={s.label} className="bg-slate-800 rounded-2xl px-4 py-3">
-                                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                                <p className="text-slate-500 text-xs mt-0.5">{s.label}</p>
+                            <div key={s.label} className="frame-ornate-dark px-4 py-3">
+                                <p className={`font-mono text-2xl font-bold ${s.color}`}>{s.value}</p>
+                                <p className="text-dim font-serif text-xs mt-0.5">{s.label}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Status tabs */}
-                <div className="flex gap-1 bg-white border border-slate-200 p-1 rounded-2xl mb-4 w-fit">
+                <div className="flex gap-1 border border-border p-1 mb-4 w-fit">
                     {STATUS_TABS.map(tab => (
                         <button
                             key={tab.key}
                             type="button"
                             onClick={() => setStatusTab(tab.key)}
-                            className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                            className={`px-4 py-1.5 text-sm font-serif tracking-wider transition-all ${
                                 statusTab === tab.key
-                                    ? 'bg-slate-900 text-white shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
+                                    ? 'bg-gold/10 text-gold border border-gold/20'
+                                    : 'text-dim hover:text-muted'
                             }`}
                         >
                             {tab.label}
                             {counts[tab.key] > 0 && (
-                                <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                                    statusTab === tab.key ? 'bg-white/20' : 'bg-slate-100'
+                                <span className={`ml-1.5 text-xs font-mono ${
+                                    statusTab === tab.key ? 'text-gold/60' : 'text-dim'
                                 }`}>
                                     {counts[tab.key]}
                                 </span>
@@ -577,50 +616,47 @@ function AuctionList({
                     ))}
                 </div>
 
-                {/* Type filter chips */}
-                <div className="flex flex-wrap gap-2 mb-6">
+                {/* Type filter */}
+                <div className="flex flex-wrap gap-2 mb-8">
                     {TYPE_TABS.map(t => (
                         <button
                             key={t}
                             type="button"
                             onClick={() => setTypeFilter(t)}
-                            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors border ${
+                            className={`px-3 py-1 text-sm font-serif tracking-wider transition-colors border ${
                                 typeFilter === t
-                                    ? 'bg-slate-900 text-white border-slate-900'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400 hover:text-slate-900'
+                                    ? 'border-gold/40 text-gold bg-gold/5'
+                                    : 'border-border text-dim hover:border-gold/20 hover:text-muted'
                             }`}
                         >
-                            {TYPE_ICON[t.toLowerCase()] ? `${TYPE_ICON[t.toLowerCase()]} ` : ''}{t}
+                            {TYPE_ICON[t.toLowerCase()] ? `${TYPE_ICON[t.toLowerCase()]} ` : ''}
+                            {t}
                         </button>
                     ))}
                 </div>
 
-                {/* Loading */}
                 {loading && (
                     <div className="flex items-center justify-center py-24">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                        <span className="ml-3 text-slate-400 text-sm">Loading auctions…</span>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
+                        <span className="ml-3 text-dim font-serif text-sm">Loading auctions…</span>
                     </div>
                 )}
 
-                {/* Error */}
                 {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 mb-6 flex items-center justify-between">
-                        <p className="text-red-700 text-sm">Error: {error}</p>
-                        <button type="button" onClick={refetch} className="text-red-600 text-sm underline">Retry</button>
+                    <div className="border border-status-error/30 px-4 py-3 mb-6 flex items-center justify-between">
+                        <p className="text-status-error text-sm font-serif">Error: {error}</p>
+                        <button type="button" onClick={refetch} className="text-gold text-sm font-serif hover:text-gold/70 transition-colors">Retry</button>
                     </div>
                 )}
 
-                {/* Empty */}
                 {!loading && filtered.length === 0 && (
                     <div className="text-center py-24">
-                        <p className="text-4xl mb-3">🔍</p>
-                        <p className="font-medium text-slate-600">No auctions found</p>
-                        <p className="text-slate-400 text-sm mt-1">Try a different filter or create one.</p>
+                        <p className="text-4xl mb-4">&#9670;</p>
+                        <p className="font-serif text-foreground text-lg mb-1">No auctions found</p>
+                        <p className="text-dim text-sm font-serif">Try a different filter or create one.</p>
                     </div>
                 )}
 
-                {/* Grid */}
                 {!loading && filtered.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                         {filtered.map(auction => (
