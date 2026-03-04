@@ -1,68 +1,104 @@
 type FlowState =
-    | 'idle'
-    | 'connecting'
-    | 'checking_kyc'
-    | 'already_verified'
-    | 'needs_verification'
-    | 'verifying'
-    | 'submitting'
-    | 'bypassing'
-    | 'done'
-    | 'error'
+	| "idle"
+	| "connecting"
+	| "checking_kyc"
+	| "already_verified"
+	| "needs_verification"
+	| "verifying"
+	| "submitting"
+	| "bypassing"
+	| "done"
+	| "error";
+
+const STEPS = [
+	{ label: "Connect Wallet", num: "I" },
+	{ label: "Verify Identity", num: "II" },
+	{ label: "Complete", num: "III" },
+] as const;
 
 export function StepIndicator({ currentState }: { currentState: FlowState }) {
-    const completedStates: FlowState[] = ['checking_kyc', 'already_verified', 'needs_verification', 'verifying', 'submitting', 'done']
-    const step2DoneStates: FlowState[] = ['done', 'already_verified']
+	const completedStates: FlowState[] = [
+		"checking_kyc",
+		"already_verified",
+		"needs_verification",
+		"verifying",
+		"submitting",
+		"done",
+	];
+	const step2DoneStates: FlowState[] = ["done", "already_verified"];
 
-    return (
-        <div className="flex items-center justify-center gap-0 mb-10 w-full max-w-md mx-auto">
-            {(['Connect Wallet', 'Verify Identity', 'Complete'] as const).map((label, i) => {
-                let status: 'active' | 'done' | 'pending' = 'pending'
-                if (i === 0) {
-                    status = ['idle', 'connecting'].includes(currentState) ? 'active' : 'done'
-                } else if (i === 1) {
-                    if (completedStates.includes(currentState)) status = 'active'
-                    if (step2DoneStates.includes(currentState)) status = 'done'
-                } else {
-                    if (currentState === 'done' || currentState === 'already_verified') status = 'done'
-                }
+	const statuses = STEPS.map((_, i) => {
+		let status: "active" | "done" | "pending" = "pending";
+		if (i === 0) {
+			status = ["idle", "connecting"].includes(currentState) ? "active" : "done";
+		} else if (i === 1) {
+			if (completedStates.includes(currentState)) status = "active";
+			if (step2DoneStates.includes(currentState)) status = "done";
+		} else {
+			if (currentState === "done" || currentState === "already_verified") status = "done";
+		}
+		return status;
+	});
 
-                return (
-                    <div key={label} className="flex items-center">
-                        <div className="flex flex-col items-center">
-                            <div
-                                className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                                    status === 'done'
-                                        ? 'bg-green-500 text-white'
-                                        : status === 'active'
-                                        ? 'bg-blue-600 text-white ring-4 ring-blue-200'
-                                        : 'bg-gray-200 text-gray-400'
-                                }`}
-                            >
-                                {status === 'done' ? '✓' : i + 1}
-                            </div>
-                            <span
-                                className={`text-xs mt-1 font-medium whitespace-nowrap ${
-                                    status === 'done'
-                                        ? 'text-green-600'
-                                        : status === 'active'
-                                        ? 'text-blue-600'
-                                        : 'text-gray-400'
-                                }`}
-                            >
-                                {label}
-                            </span>
-                        </div>
-                        {i < 2 && (
-                            <div
-                                className={`h-0.5 w-16 mx-2 mb-4 transition-all ${
-                                    status === 'done' ? 'bg-green-400' : 'bg-gray-200'
-                                }`}
-                            />
-                        )}
-                    </div>
-                )
-            })}
-        </div>
-    )
+	return (
+		<div className="mb-10 w-full max-w-md mx-auto">
+			{/* Boxes + connectors row */}
+			<div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center">
+				{STEPS.map((step, i) => (
+					<>
+						<div key={step.label} className="flex justify-center">
+							<div
+								className={`flex items-center justify-center font-serif font-semibold transition-all border ${
+									statuses[i] === "active"
+										? "w-12 h-12 text-base border-gold/40 text-gold bg-gold-muted"
+										: statuses[i] === "done"
+											? "w-10 h-10 text-sm border-status-live/40 text-status-live bg-status-live/10"
+											: "w-10 h-10 text-sm border-border text-dim bg-surface"
+								}`}
+							>
+								{statuses[i] === "done" ? (
+									<svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+										<path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+									</svg>
+								) : (
+									step.num
+								)}
+							</div>
+						</div>
+						{i < 2 && (
+							<div
+								key={`line-${step.label}`}
+								className={`h-px w-12 transition-all ${
+									statuses[i] === "done"
+										? "bg-gradient-to-r from-status-live/40 to-status-live/10"
+										: "bg-border"
+								}`}
+							/>
+						)}
+					</>
+				))}
+			</div>
+			{/* Labels row */}
+			<div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start mt-2">
+				{STEPS.map((step, i) => (
+					<>
+						<div key={step.label} className="flex justify-center">
+							<span
+								className={`font-serif tracking-wide text-center ${
+									statuses[i] === "active"
+										? "text-sm text-gold font-medium"
+										: statuses[i] === "done"
+											? "text-xs text-status-live"
+											: "text-xs text-dim"
+								}`}
+							>
+								{step.label}
+							</span>
+						</div>
+						{i < 2 && <div key={`spacer-${step.label}`} className="w-12" />}
+					</>
+				))}
+			</div>
+		</div>
+	);
 }
