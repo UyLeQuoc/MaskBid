@@ -8,7 +8,8 @@
 		"verify-asset": "bun run scripts/3_verifyAsset.ts",
 		"readUid": "bun run scripts/4_readUid.ts",
 		"mint": "bun run scripts/5_mint.ts",
-		"redeem": "bun run scripts/6_redeem.ts"
+		"redeem": "bun run scripts/6_redeem.ts",
+		"reset-timestamp": "bun run scripts/resetTimestamp.ts"
 	},
 	"dependencies": { 
 		"dotenv": "^17.2.3",
