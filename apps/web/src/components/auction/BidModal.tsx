@@ -5,6 +5,7 @@ import { USDCABI } from '@/abis/USDC'
 import { MaskBidAuctionABI } from '@/abis/MaskBidAuction'
 import { env } from '@/configs/env'
 import { encryptBid, generateBidHash } from '@/lib/crypto'
+import { CRECommandBox } from '@/components/CRECommandBox'
 
 type Step = 'connect' | 'approve' | 'deposit' | 'bid' | 'submitting' | 'success' | 'error'
 
@@ -19,6 +20,28 @@ interface BidModalProps {
     }
     onClose: () => void
     onSuccess?: () => void
+}
+
+function parseContractError(err: unknown): string {
+    const msg = (err as any)?.reason || (err as any)?.message || String(err)
+
+    // Match known contract revert reasons
+    if (msg.includes('Seller cannot bid')) return 'You cannot bid on your own auction. Please switch to a different wallet.'
+    if (msg.includes('Auction not active')) return 'This auction is not currently active. It may have ended or not started yet.'
+    if (msg.includes('Already bid')) return 'You have already placed a bid on this auction.'
+    if (msg.includes('Insufficient deposit') || msg.includes('insufficient funds')) return 'Insufficient USDC balance for the required deposit.'
+    if (msg.includes('Not KYC verified') || msg.includes('KYC')) return 'Your wallet is not KYC verified. Please complete World ID verification first.'
+    if (msg.includes('user rejected') || msg.includes('ACTION_REJECTED')) return 'Transaction was rejected in MetaMask.'
+    if (msg.includes('Auction ended')) return 'This auction has already ended.'
+    if (msg.includes('ERC20: insufficient allowance') || msg.includes('allowance')) return 'USDC approval insufficient. Please approve again.'
+
+    // Fallback: try to extract just the revert reason
+    const revertMatch = msg.match(/reason="([^"]+)"/)
+    if (revertMatch) return revertMatch[1]
+
+    // Last resort: truncate the raw message
+    if (msg.length > 150) return msg.slice(0, 150) + '...'
+    return msg
 }
 
 export default function BidModal({ auction, onClose, onSuccess }: BidModalProps) {
@@ -95,7 +118,7 @@ export default function BidModal({ auction, onClose, onSuccess }: BidModalProps)
             setIsApproved(true)
             setStep('bid')
         } catch (err) {
-            setError('Failed to approve USDC: ' + (err as Error).message)
+            setError(parseContractError(err))
             setStep('error')
         }
     }
@@ -144,7 +167,7 @@ export default function BidModal({ auction, onClose, onSuccess }: BidModalProps)
             setStep('success')
             onSuccess?.()
         } catch (err) {
-            setError('Failed to place bid: ' + (err as Error).message)
+            setError(parseContractError(err))
             setStep('error')
         }
     }
@@ -339,9 +362,11 @@ export default function BidModal({ auction, onClose, onSuccess }: BidModalProps)
 
                     {/* SUCCESS step */}
                     {step === 'success' && (
-                        <div className="text-center py-2 space-y-4">
-                            <div className="text-5xl">✅</div>
-                            <h3 className="text-slate-900 font-bold text-xl">Bid Submitted!</h3>
+                        <div className="space-y-4">
+                            <div className="text-center">
+                                <div className="text-5xl">✅</div>
+                                <h3 className="text-slate-900 font-bold text-xl mt-2">Bid Submitted!</h3>
+                            </div>
 
                             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 text-sm text-left">
                                 <div className="flex items-center justify-between">
@@ -355,23 +380,15 @@ export default function BidModal({ auction, onClose, onSuccess }: BidModalProps)
                             </div>
 
                             {txHash && (
-                                <a
-                                    href={`${env.NEXT_PUBLIC_EXPLORER_URL}/${txHash}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-700 text-sm underline block"
-                                >
-                                    View on Explorer
-                                </a>
+                                <CRECommandBox
+                                    txHash={txHash}
+                                    command="cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation"
+                                    steps={[
+                                        { label: 'Sync BidPlaced event', eventIndex: 1 },
+                                    ]}
+                                    onDone={onClose}
+                                />
                             )}
-
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="w-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-900 font-semibold py-3 rounded-2xl transition-colors"
-                            >
-                                Close
-                            </button>
                         </div>
                     )}
 

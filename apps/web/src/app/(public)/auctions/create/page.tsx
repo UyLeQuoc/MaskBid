@@ -16,7 +16,7 @@ const ERC1155_APPROVAL_ABI = [
     'function balanceOf(address account, uint256 id) external view returns (uint256)',
 ] as const
 
-type EthProvider = Parameters<typeof BrowserProvider>[0] & {
+type EthProvider = ConstructorParameters<typeof BrowserProvider>[0] & {
     request: (args: { method: string }) => Promise<unknown>
 }
 

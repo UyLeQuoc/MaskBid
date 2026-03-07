@@ -2,6 +2,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const STATUS_OK = 200;
 const STATUS_BAD_REQUEST = 400;
+const STATUS_UNAUTHORIZED = 401;
 const STATUS_NOT_FOUND = 404;
 const STATUS_SERVER_ERROR = 500;
 
@@ -40,23 +41,11 @@ function buildResponse(statusCode: number, body: unknown): Response {
 
 // ============================================================================
 // VALIDATE REQUEST ORIGIN
-// Checks if request is from authorized CRE workflow
+// In production, add signature verification or IP whitelist here.
+// Currently open — JWT verification is disabled on this Edge Function
+// so that Chainlink CRE workflows can call it without auth headers.
 // ============================================================================
-function validateRequestOrigin(req: Request): boolean {
-  // In production, validate that the request came from Chainlink CRE
-  // This could check for:
-  // - A shared secret in headers
-  // - IP whitelist
-  // - Signature verification
-
-  const authHeader = req.headers.get("Authorization");
-  const expectedToken = Deno.env.get("CRE_WEBHOOK_TOKEN");
-
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-    console.warn("Unauthorized request attempt");
-    return false;
-  }
-
+function validateRequestOrigin(_req: Request): boolean {
   return true;
 }
 
@@ -151,7 +140,34 @@ const handlers: Record<
       });
     }
 
-    // Generate a UUID for the bid
+    // Check if the frontend already inserted a bid for this bidder+auction
+    const { data: existingBid } = await client
+      .from("bids")
+      .select("id")
+      .eq("auction_id", auction.id)
+      .eq("bidder_address", bidder)
+      .maybeSingle();
+
+    if (existingBid) {
+      // Update the existing bid with contract data
+      const { error } = await client
+        .from("bids")
+        .update({
+          bid_hash: bidHash,
+          escrow_tx_hash: txHash?.toString(),
+        })
+        .eq("id", existingBid.id);
+
+      if (error) {
+        console.error("Failed to update existing bid:", error);
+        throw new Error(error.message);
+      }
+
+      console.log(`Bid updated for auction ${auctionId} by ${bidder} (existing record)`);
+      return { message: "Bid updated with contract data", auctionId, bidder, id: existingBid.id };
+    }
+
+    // No existing bid — insert a new one (event arrived before frontend POST)
     const bidUUID = crypto.randomUUID();
 
     const { error } = await client.from("bids").insert({
@@ -159,8 +175,6 @@ const handlers: Record<
       auction_id: auction.id,
       bidder_address: bidder,
       bid_hash: bidHash,
-      encrypted_data: "", // Will be filled by bidder app
-      hashed_amount: "", // Will be filled by bidder app
       status: "active",
       escrow_tx_hash: txHash?.toString(),
     });

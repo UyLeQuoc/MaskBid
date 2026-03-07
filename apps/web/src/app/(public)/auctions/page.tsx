@@ -137,10 +137,12 @@ function AuctionCard({ auction, now, onView, onBid }: {
     const countdownLabel = phase === 'upcoming' ? 'Starts in' : phase === 'live' ? 'Ends in' : 'Status'
 
     return (
-        <button
-            type="button"
+        <div
+            role="button"
+            tabIndex={0}
             className="card-hover border border-border w-full text-left group cursor-pointer"
             onClick={onView}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onView() } }}
         >
             {/* Asset icon area */}
             <div className="h-32 bg-surface flex items-center justify-center text-5xl relative border-b border-border">
@@ -219,7 +221,7 @@ function AuctionCard({ auction, now, onView, onBid }: {
                     )}
                 </div>
             </div>
-        </button>
+        </div>
     )
 }
 

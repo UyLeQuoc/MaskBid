@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+
 type FlowState =
 	| "idle"
 	| "connecting"
@@ -45,8 +47,8 @@ export function StepIndicator({ currentState }: { currentState: FlowState }) {
 			{/* Boxes + connectors row */}
 			<div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center">
 				{STEPS.map((step, i) => (
-					<>
-						<div key={step.label} className="flex justify-center">
+					<Fragment key={step.label}>
+						<div className="flex justify-center">
 							<div
 								className={`flex items-center justify-center font-serif font-semibold transition-all border ${
 									statuses[i] === "active"
@@ -67,7 +69,6 @@ export function StepIndicator({ currentState }: { currentState: FlowState }) {
 						</div>
 						{i < 2 && (
 							<div
-								key={`line-${step.label}`}
 								className={`h-px w-12 transition-all ${
 									statuses[i] === "done"
 										? "bg-gradient-to-r from-status-live/40 to-status-live/10"
@@ -75,14 +76,14 @@ export function StepIndicator({ currentState }: { currentState: FlowState }) {
 								}`}
 							/>
 						)}
-					</>
+					</Fragment>
 				))}
 			</div>
 			{/* Labels row */}
 			<div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start mt-2">
 				{STEPS.map((step, i) => (
-					<>
-						<div key={step.label} className="flex justify-center">
+					<Fragment key={`label-${step.label}`}>
+						<div className="flex justify-center">
 							<span
 								className={`font-serif tracking-wide text-center ${
 									statuses[i] === "active"
@@ -95,8 +96,8 @@ export function StepIndicator({ currentState }: { currentState: FlowState }) {
 								{step.label}
 							</span>
 						</div>
-						{i < 2 && <div key={`spacer-${step.label}`} className="w-12" />}
-					</>
+						{i < 2 && <div className="w-12" />}
+					</Fragment>
 				))}
 			</div>
 		</div>
