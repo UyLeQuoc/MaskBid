@@ -201,9 +201,15 @@ The auction now appears on the `/auctions` page.
 ### Auction states
 
 ```
-Created --(startTime reached)--> Active --(endTime reached)--> Ended --(CRE resolves)--> Finalized
-                                                                       |
-                                                                       +--(seller cancels)--> Cancelled
+Created --(startTime reached)--> Active --(endTime reached)--> Ended
+   |                                                             |
+   +--(seller cancels)--> Cancelled                              +--(CRE resolves)--> PendingClaim
+                                                                                        |
+                                                              +-------------------------+
+                                                              |                         |
+                                                  (winner calls claimWin)    (deadline passes → expireClaim)
+                                                              |                         |
+                                                          Finalized                 Cancelled
 ```
 
 ---
@@ -309,53 +315,36 @@ Only the count of bids is visible. No amounts. No rankings.
 
 Once the auction end time passes, the Chainlink CRE workflow resolves it.
 
-### Step 1: End the auction
+### Step 1: End the auction on-chain
 
-The auction must be in "Ended" state on-chain. Either wait for the end time, or fast-forward on Tenderly:
+Use the **Test Controls** panel on the auction detail page:
+
+1. Click **"Set Start"** to make the auction immediately active
+2. Click **"Set End"** to set the auction to end in 30 seconds
+3. Wait ~30 seconds, then click **"End Auction"** — calls `endAuction()` on-chain
+4. Sync the `AuctionEnded` event via the CRE command shown in the UI
+
+> **Note:** The `AuctionStartTimeUpdated` / `AuctionEndTimeUpdated` events from Set Start / Set End are also handled by the CRE workflow and sync to Supabase, but the critical one is `AuctionEnded` — it sets the Supabase status to `"ended"` which the solver requires.
+
+Alternatively, fast-forward on Tenderly via CLI:
 
 ```bash
-# Fast-forward Tenderly block timestamp past end time
 RPC="<your-tenderly-rpc-url>"
-END_TIME="<auction-end-time-unix + 1>"
-
 curl -s -X POST "$RPC" -H "Content-Type: application/json" \
-  -d "{\"jsonrpc\":\"2.0\",\"method\":\"evm_setNextBlockTimestamp\",\"params\":[\"0x$(printf '%x' $END_TIME)\"],\"id\":1}"
+  -d '{"jsonrpc":"2.0","method":"evm_increaseTime","params":["0x1C20"],"id":1}'
 curl -s -X POST "$RPC" -H "Content-Type: application/json" \
-  -d "{\"jsonrpc\":\"2.0\",\"method\":\"evm_mine\",\"params\":[],\"id\":2}"
-
-# Then call endAuction on-chain
+  -d '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":2}'
 cast send <AUCTION_CONTRACT> "endAuction(uint256)" <AUCTION_ID> --rpc-url "$RPC" --private-key <KEY>
+# Then sync AuctionEnded event via CRE
 ```
 
-### Step 2: Update auction status in Supabase
+### Step 2: Prepare and run the solver
 
-The solver checks Supabase for the auction status. Update it to "ended":
-
-```bash
-curl -s -X PATCH "https://<project>.supabase.co/rest/v1/auctions?id=eq.<supabase-auction-uuid>" \
-  -H "apikey: <service-role-key>" \
-  -H "Authorization: Bearer <service-role-key>" \
-  -H "Content-Type: application/json" \
-  -d '{"status": "ended"}'
-```
-
-### Step 3: Update auction-workflow config
-
-Set the correct `auctionId` in `apps/cre-workflow/auction-workflow/config.json`:
-
-```json
-{
-  "auctionId": "<supabase-auction-uuid>",
-  "chainSelectorName": "ethereum-testnet-sepolia"
-}
-```
-
-> **Critical:** `chainSelectorName` must be `ethereum-testnet-sepolia` (not `ethereum-sepolia`).
-
-### Step 4: Run the solver
+A helper script automates finding the ended auction and updating `config.json`:
 
 ```bash
 cd apps/cre-workflow
+./prepare-solver.sh           # Finds ended auction, updates config.json
 cre workflow simulate auction-workflow --target local-simulation
 # When prompted for HTTP trigger payload, type: {}
 ```
@@ -385,114 +374,90 @@ cre workflow simulate auction-workflow --target local-simulation
 |     (uint256 auctionId, address winner, uint256 amount)     |
 |                                                             |
 |  6. Submit report on-chain via EVMClient                    |
-|     -> MaskBidAuction._processReport(report)                |
+|     -> Forwarder -> MaskBidAuction._processReport(report)   |
 |     -> Internally calls _finalize()                         |
+|     -> Sets state to PendingClaim                           |
 +------------------------------------------------------------+
 ```
 
-### Expected output
+### What `_finalize()` does on-chain
 
-```
-[USER LOG] Solver response: winner=0xBidder..., amount=1800
-[USER LOG] Auction resolved! Winner: 0xBidder...
-[USER LOG] Winning bid: 1800
-[USER LOG] Submitting winner on-chain for auction 1...
-[USER LOG] Encoded report: 0x000000...
-[USER LOG] On-chain submission successful! TxHash: 0x...
-```
+1. Sets `auction.state = PendingClaim`
+2. Records `winner`, `winningBid`, and `claimDeadline` (48 hours from now)
+3. Emits `WinnerClaimRequired(auctionId, winner, winningBid, depositPaid, balanceDue, deadline)`
 
-### What `_finalize()` does on-chain (current demo)
+> **Important:** `_finalize()` does NOT transfer tokens or USDC. The winner must call `claimWin()` within 48 hours to complete the purchase (see [Phase 6](#7-phase-6-claim-results)).
 
-1. Sets `auction.state = Finalized`
-2. Records `winner` and `winningBid` on the auction
-3. **Transfers ERC-1155 RWA token** from contract -> winner
-4. **Transfers winner's USDC deposit** from contract -> seller
-5. Emits `AuctionFinalized(auctionId, winner, winningBid)`
+### Local simulation workaround
 
-> **Demo limitation:** Currently, only the **deposit** (not the full bid amount) is transferred to the seller. For example, if the deposit is 100 USDC and the winning bid is 1,800 USDC, the seller only receives 100 USDC. See [Planned: Two-Step Claim](#planned-two-step-claim-mechanism) below for the production fix.
+In production, the CRE node submits the report on-chain automatically via the Forwarder. In local simulation (`--target local-simulation`), the `EVMClient.writeReport()` does not actually broadcast — the tx hash will be all zeros.
 
-### Alternative: Admin finalization via `cast`
+To finalize on-chain during local development, use the **"Finalize"** button in Test Controls on the auction detail page (requires admin wallet). The button reads the solver's winner and amount from Supabase and calls `finalizeAuction()` on-chain. It is only enabled after the solver has run (auction status = `resolved`).
 
-If the CRE on-chain submission doesn't broadcast (simulation-only), you can finalize directly:
+Alternatively, use `cast` directly:
 
 ```bash
-# Call finalizeAuction as admin (requires ADMIN_ROLE)
 cast send <AUCTION_CONTRACT> "finalizeAuction(uint256,address,uint256)" \
-  <AUCTION_ID> <WINNER_ADDRESS> <WINNING_BID_IN_USDC_UNITS> \
+  <CONTRACT_AUCTION_ID> <WINNER_ADDRESS> <WINNING_BID_IN_USDC_UNITS> \
   --rpc-url <RPC> --private-key <ADMIN_KEY>
-
-# Example: auction 1, winner 0x8832..., bid 1800 USDC (1800 * 1e6 = 1800000000)
-cast send 0x99f7...72FC "finalizeAuction(uint256,address,uint256)" \
-  1 0x883227d3C98114a171c34E794Fcf24a4e996babC 1800000000 \
-  --rpc-url "$RPC" --private-key "$KEY"
 ```
 
-### Verify finalization
+After finalizing, sync the `WinnerClaimRequired` event via CRE (command shown in UI).
+
+### Verify state
 
 ```bash
-# Check auction state (should be 3 = Finalized)
+# Check auction state (3 = PendingClaim, 4 = Finalized after claimWin)
 cast call <AUCTION_CONTRACT> "getAuctionState(uint256)(uint8)" <AUCTION_ID> --rpc-url <RPC>
-
-# Check winner's RWA token balance (should be 1)
-cast call <ASSET_CONTRACT> "balanceOf(address,uint256)(uint256)" <WINNER> <TOKEN_ID> --rpc-url <RPC>
-```
-
-### Sync finalization to database
-
-```bash
-cd apps/cre-workflow
-cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation
 ```
 
 ---
 
 ## 7. Phase 6: Claim Results
 
-**Page:** `/my-bids`
+**Page:** `/auctions` -> auction detail page
 
-### If you won (current demo)
+### Two-Step Claim Mechanism
 
-- Status badge: **"Won"**
-- ERC-1155 RWA token is already in your wallet (transferred during finalization)
-- Your USDC deposit was sent to the seller
+After CRE resolution, the auction enters `PendingClaim` state. The winner must complete the purchase within **48 hours**.
+
+```
+_finalize()   -> Sets state to PendingClaim, records winner + winningBid + claimDeadline
+claimWin()    -> Winner pays (winningBid - deposit) in USDC
+                 -> Full bid amount (deposit + remainder) transfers to seller
+                 -> RWA token transfers to winner
+                 -> State set to Finalized
+expireClaim() -> If winner doesn't pay within 48 hours, anyone can call this
+                 -> Winner's deposit forfeited to seller as compensation
+                 -> RWA token returned to seller
+                 -> State set to Cancelled (losing bidders can then claimRefund)
+```
+
+### If you won
+
+The auction detail page reads the on-chain `PendingClaim` state and shows a **"Claim Win"** button if your connected wallet is the winner. Clicking it opens the `ClaimWinModal`:
+
+1. Review payment breakdown (winning bid, deposit already paid, balance due)
+2. See the claim deadline countdown
+3. Click **"Approve & Claim Win"**
+4. Approve remaining USDC (MetaMask popup) — if balance due > 0
+5. Confirm `claimWin` transaction (MetaMask popup)
+6. RWA token arrives in your wallet, seller receives full payment
 
 ### If you lost
 
-- Status badge: **"Lost"**
-- Click **"Claim Deposit"**
+- Losing bidders can claim refunds **immediately** during `PendingClaim` state (no need to wait for the winner)
+- Click **"Claim Deposit"** on the auction page or `/my-bids`
 - Calls `MaskBidAuction.claimRefund(auctionId)`
 - Your USDC deposit is returned to your wallet
 - Emits `BidRefunded` event
 
-### Planned: Two-Step Claim Mechanism
+### If the winner doesn't pay (claim expires)
 
-The current demo transfers only the **deposit** to the seller upon finalization. In production, the flow should be:
-
-```
-Current (demo):
-  _finalize() -> RWA token to winner + deposit to seller (winner underpays)
-
-Planned (production):
-  _finalize()  -> Records winner, holds RWA token in escrow
-  claimWin()   -> Winner pays (bidAmount - deposit) in USDC
-                  -> RWA token transfers to winner
-                  -> Full bid amount (deposit + remainder) transfers to seller
-  (timeout)    -> If winner doesn't pay within deadline, seller keeps deposit
-                  -> Seller can relist the asset
-```
-
-**Contract changes needed (MaskBidAuction.sol):**
-
-1. `_finalize()` — Only record winner and winning bid. Do NOT transfer tokens yet. Set state to `AwaitingPayment`.
-2. `claimWin(auctionId)` — New function. Winner calls this with USDC approval for `winningBid - depositAmount`. Transfers full payment to seller, RWA token to winner. Sets state to `Finalized`.
-3. `claimTimeout(auctionId)` — New function. If winner doesn't pay within a deadline (e.g. 48 hours), seller can call this to reclaim the RWA token and keep the deposit as compensation.
-4. Add `AuctionState.AwaitingPayment` enum value.
-5. `claimRefund()` — Only available after `Finalized` or `Cancelled`, not during `AwaitingPayment`.
-
-**Why this matters:**
-- Deposit = commitment fee (e.g. 100 USDC) — low enough that many bidders participate
-- Winning bid = actual price (e.g. 1,800 USDC) — winner pays the full amount to claim
-- If winner ghosts, seller keeps the deposit for their trouble
+- After the 48-hour deadline, anyone can call `expireClaim(auctionId)`
+- The winner's deposit is forfeited to the seller
+- The RWA token is returned to the seller (who can relist it)
+- Auction state becomes `Cancelled` — all other bidders can `claimRefund`
 
 ---
 
@@ -652,11 +617,14 @@ Each contract transaction emits multiple events (including ERC-1155 and ERC-20 i
 
 | Transaction        | Event Index | Event                                                            |
 | ------------------ | ----------- | ---------------------------------------------------------------- |
-| **Register Asset** | `1`         | `AssetRegistered`                                                |
-| **Verify & Mint**  | `0`         | `AssetVerified`                                                  |
-| **Verify & Mint**  | `2`         | `TokensMinted` (skip index 1 — that's ERC-1155 `TransferSingle`) |
-| **Create Auction** | `2`         | `AuctionCreated` (skip indices 0-1 — ERC-1155 transfer events)   |
-| **Place Bid**      | `1`         | `BidPlaced` (skip index 0 — that's USDC `Transfer`)              |
+| **Register Asset** | `1`         | `AssetRegistered`                                                 |
+| **Verify & Mint**  | `0`         | `AssetVerified`                                                   |
+| **Verify & Mint**  | `2`         | `TokensMinted` (skip index 1 — that's ERC-1155 `TransferSingle`)  |
+| **Create Auction** | `2`         | `AuctionCreated` (skip indices 0-1 — ERC-1155 transfer events)    |
+| **Place Bid**      | `1`         | `BidPlaced` (skip index 0 — that's USDC `Transfer`)               |
+| **End Auction**    | `0`         | `AuctionEnded`                                                     |
+| **Finalize**       | `0`         | `WinnerClaimRequired`                                              |
+| **Claim Win**      | `4`         | `WinClaimed` (skip 0-3: USDC transfers + ERC-1155 transfer)       |
 
 > **How to find the right event index:** If a CRE sync fails with an unrecognized event, try adjacent indices. Each on-chain transaction can emit multiple events from different contracts (ERC-1155 transfers, ERC-20 transfers, and your custom events). You can also inspect the transaction on the Tenderly explorer to see the exact event ordering.
 
@@ -693,20 +661,31 @@ cre workflow simulate auction-log-trigger-workflow --broadcast --target local-si
 cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation
 # Trigger: 1 | Tx hash: <from UI> | Event index: 1
 
-# 5. End the auction
-#    Option A: Wait for end time
-#    Option B: Fast-forward on Tenderly (see Phase 5 section)
-#    Then call endAuction on-chain:
-cast send <AUCTION_CONTRACT> "endAuction(uint256)" <ID> --rpc-url <RPC> --private-key <KEY>
-#    Then update Supabase auction status to "ended" (see Phase 5 section)
+# 5. End the auction (on auction detail page, use Test Controls)
+#    Click "Set Start" → "Set End" → wait 30s → "End Auction"
+#    Sync the AuctionEnded event via CRE (command shown in UI):
+cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation
+# Trigger: 1 | Tx hash: <from UI> | Event index: 0
 
 # 6. Resolve the auction (solver decrypts bids, picks winner)
-#    First update config.json with correct auctionId (Supabase UUID)
+cd apps/cre-workflow
+./prepare-solver.sh    # Auto-finds ended auction, updates config.json
 cre workflow simulate auction-workflow --target local-simulation
 # When prompted for HTTP trigger payload, type: {}
 
-# 7. (Optional) Sync finalization to DB
+# 7. Finalize on-chain (local simulation workaround — production uses CRE Forwarder)
+#    On auction detail page (admin wallet), click "Finalize" in Test Controls
+#    (reads winner from Supabase, calls finalizeAuction on-chain)
+#    Sync WinnerClaimRequired event via CRE (command shown in UI):
 cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation
+# Trigger: 1 | Tx hash: <from UI> | Event index: 0
+
+# 8. Winner claims the asset (on /auctions, switch to winner wallet)
+#    Click "Claim Win" → approve remaining USDC → confirm claimWin tx
+#    RWA token transfers to winner, full USDC payment to seller
+#    After claim succeeds, the modal shows a CRE sync command. Sync the WinClaimed event:
+cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation
+# Trigger: 1 | Tx hash: <from modal> | Event index: 4
 ```
 
 ---
@@ -729,6 +708,10 @@ cre workflow simulate auction-log-trigger-workflow --broadcast --target local-si
 | Wrong event picked by CRE | ERC-1155/ERC-20 events interleave with custom events | Check the Event Index Reference table above |
 | `user rejected transaction` | User declined the MetaMask popup | Retry the action and approve in MetaMask |
 | `ERC20: insufficient allowance` | USDC approval expired or insufficient | Re-approve USDC spending in the bid flow |
+| `AccessControlUnauthorizedAccount` on Finalize | Connected wallet doesn't have `ADMIN_ROLE` | Switch MetaMask to the admin/deployer wallet |
+| `Encoded event signature not found on ABI` | New contract events not in CRE workflow ABI | Ensure CRE workflow and Edge Function are updated and redeployed |
+| Finalize button disabled | Solver hasn't run yet or auction not in `resolved` status | Run `prepare-solver.sh` + solver first |
+| `Claim deadline has passed` | Winner didn't call `claimWin` within 48 hours | Call `expireClaim` to return RWA to seller and forfeit deposit |
 
 ### Finding a transaction hash after the fact
 

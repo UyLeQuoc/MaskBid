@@ -96,6 +96,33 @@ type AuctionEndTimeUpdatedParams = {
   txHash?: string;
 };
 
+type WinnerClaimRequiredParams = {
+  action: "WinnerClaimRequired";
+  auctionId: string;
+  winner: string;
+  winningBid: string;
+  depositPaid: string;
+  balanceDue: string;
+  deadline: string;
+  txHash?: string;
+};
+
+type WinClaimedParams = {
+  action: "WinClaimed";
+  auctionId: string;
+  winner: string;
+  totalPaid: string;
+  txHash?: string;
+};
+
+type ClaimExpiredParams = {
+  action: "ClaimExpired";
+  auctionId: string;
+  winner: string;
+  forfeitedDeposit: string;
+  txHash?: string;
+};
+
 type AuctionEventParams =
   | AuctionCreatedParams
   | BidPlacedParams
@@ -103,7 +130,10 @@ type AuctionEventParams =
   | AuctionFinalizedParams
   | BidRefundedParams
   | AuctionStartTimeUpdatedParams
-  | AuctionEndTimeUpdatedParams;
+  | AuctionEndTimeUpdatedParams
+  | WinnerClaimRequiredParams
+  | WinClaimedParams
+  | ClaimExpiredParams;
 
 // =============================================================================
 // SEND EVENT DATA TO SUPABASE EDGE FUNCTION
@@ -150,6 +180,9 @@ const eventAbi = parseAbi([
   "event BidRefunded(uint256 indexed auctionId, address indexed bidder, uint256 amount)",
   "event AuctionStartTimeUpdated(uint256 indexed auctionId, uint256 newStartTime)",
   "event AuctionEndTimeUpdated(uint256 indexed auctionId, uint256 newEndTime)",
+  "event WinnerClaimRequired(uint256 indexed auctionId, address indexed winner, uint256 winningBid, uint256 depositPaid, uint256 balanceDue, uint256 deadline)",
+  "event WinClaimed(uint256 indexed auctionId, address indexed winner, uint256 totalPaid)",
+  "event ClaimExpired(uint256 indexed auctionId, address indexed winner, uint256 forfeitedDeposit)",
 ]);
 
 // =============================================================================
@@ -271,6 +304,42 @@ const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
         newEndTime: newEndTime.toString(),
       };
       runtime.log(`Event AuctionEndTimeUpdated detected: auctionId ${auctionId} | newEndTime ${newEndTime}`);
+      break;
+    }
+    case "WinnerClaimRequired": {
+      const { auctionId, winner, winningBid, depositPaid, balanceDue, deadline } = decodedLog.args;
+      eventParams = {
+        action: "WinnerClaimRequired",
+        auctionId: auctionId.toString(),
+        winner,
+        winningBid: winningBid.toString(),
+        depositPaid: depositPaid.toString(),
+        balanceDue: balanceDue.toString(),
+        deadline: deadline.toString(),
+      };
+      runtime.log(`Event WinnerClaimRequired detected: auctionId ${auctionId} | winner ${winner} | bid ${winningBid}`);
+      break;
+    }
+    case "WinClaimed": {
+      const { auctionId, winner, totalPaid } = decodedLog.args;
+      eventParams = {
+        action: "WinClaimed",
+        auctionId: auctionId.toString(),
+        winner,
+        totalPaid: totalPaid.toString(),
+      };
+      runtime.log(`Event WinClaimed detected: auctionId ${auctionId} | winner ${winner} | totalPaid ${totalPaid}`);
+      break;
+    }
+    case "ClaimExpired": {
+      const { auctionId, winner, forfeitedDeposit } = decodedLog.args;
+      eventParams = {
+        action: "ClaimExpired",
+        auctionId: auctionId.toString(),
+        winner,
+        forfeitedDeposit: forfeitedDeposit.toString(),
+      };
+      runtime.log(`Event ClaimExpired detected: auctionId ${auctionId} | winner ${winner} | forfeited ${forfeitedDeposit}`);
       break;
     }
     default:

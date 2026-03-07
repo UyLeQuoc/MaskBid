@@ -11,10 +11,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
     const seller = searchParams.get('seller')
+    const winner = searchParams.get('winner')
 
     let query = supabase.from('auctions').select('*').order('started_at', { ascending: false })
     if (status) query = query.eq('status', status)
     if (seller) query = query.ilike('seller_address', seller)
+    if (winner) query = query.ilike('winner_address', winner)
 
     const { data: auctions, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

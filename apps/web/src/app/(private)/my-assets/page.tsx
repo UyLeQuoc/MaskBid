@@ -33,6 +33,18 @@ type AssetState = {
     created_at: string
 }
 
+type WonAuction = {
+    id: string
+    asset_id: string
+    asset_name: string | null
+    asset_type: string | null
+    winning_amount: number | null
+    winner_address: string | null
+    resolved_at: string | null
+    contract_auction_id: number | null
+    token_id: number | null
+}
+
 function deriveStatus(a: AssetState): string {
     if (a.token_minted > 0 && a.token_redeemed >= a.token_minted) return 'Redeemed'
     if (a.token_minted > 0) return 'Minted'
@@ -84,7 +96,14 @@ function StatusBadge({ status }: { status: string }) {
 // ---------------------------------------------------------------------------
 // Asset list
 // ---------------------------------------------------------------------------
-function AssetList({ assets, loading, onSelect }: { assets: AssetState[]; loading: boolean; onSelect: (id: string) => void }) {
+function fmtPrice(n: number | null): string {
+    if (n == null) return '—'
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function AssetList({ assets, wonAuctions, loading, onSelect }: {
+    assets: AssetState[]; wonAuctions: WonAuction[]; loading: boolean; onSelect: (id: string) => void
+}) {
     return (
         <div className="min-h-screen bg-background text-foreground pt-24 pb-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -113,51 +132,106 @@ function AssetList({ assets, loading, onSelect }: { assets: AssetState[]; loadin
                     </div>
                 )}
 
-                {!loading && assets.length === 0 && (
+                {!loading && assets.length === 0 && wonAuctions.length === 0 && (
                     <div className="text-center py-24">
                         <p className="text-4xl mb-4">&#9670;</p>
-                        <p className="font-serif text-foreground text-lg mb-1">No assets registered yet.</p>
-                        <p className="text-dim text-sm font-serif">Register your first physical asset to get started.</p>
+                        <p className="font-serif text-foreground text-lg mb-1">No assets yet.</p>
+                        <p className="text-dim text-sm font-serif">Register a physical asset or win an auction to get started.</p>
                     </div>
                 )}
 
                 {!loading && assets.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {assets.map(asset => {
-                            const status = deriveStatus(asset)
-                            const icon = TYPE_ICON[asset.asset_type?.toLowerCase() ?? ''] ?? '📦'
-                            return (
-                                <div key={asset.asset_id} className="card-hover border border-border overflow-hidden">
-                                    <div className="h-32 bg-surface flex items-center justify-center text-6xl border-b border-border">
-                                        {icon}
-                                    </div>
-                                    <div className="p-5">
-                                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                                            {asset.asset_type && (
-                                                <span className="text-[10px] font-serif tracking-wider text-dim px-2 py-0.5 border border-gold/10">
-                                                    {asset.asset_type}
-                                                </span>
-                                            )}
-                                            <StatusBadge status={status} />
+                    <>
+                        <h2 className="font-serif text-lg text-muted tracking-wider uppercase mb-4">Registered Assets</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                            {assets.map(asset => {
+                                const status = deriveStatus(asset)
+                                const icon = TYPE_ICON[asset.asset_type?.toLowerCase() ?? ''] ?? '📦'
+                                return (
+                                    <div key={asset.asset_id} className="card-hover border border-border overflow-hidden">
+                                        <div className="h-32 bg-surface flex items-center justify-center text-6xl border-b border-border">
+                                            {icon}
                                         </div>
+                                        <div className="p-5">
+                                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                                {asset.asset_type && (
+                                                    <span className="text-[10px] font-serif tracking-wider text-dim px-2 py-0.5 border border-gold/10">
+                                                        {asset.asset_type}
+                                                    </span>
+                                                )}
+                                                <StatusBadge status={status} />
+                                            </div>
 
-                                        <h3 className="font-serif text-foreground font-semibold mb-1 truncate">{asset.asset_name}</h3>
-                                        <p className="text-dim text-xs font-serif mb-4">
-                                            Registered {new Date(asset.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </p>
+                                            <h3 className="font-serif text-foreground font-semibold mb-1 truncate">{asset.asset_name}</h3>
+                                            <p className="text-dim text-xs font-serif mb-4">
+                                                Registered {new Date(asset.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </p>
 
-                                        <button
-                                            type="button"
-                                            onClick={() => onSelect(asset.asset_id)}
-                                            className="btn-ornate-ghost w-full text-muted hover:text-foreground font-serif tracking-wider text-sm py-2"
-                                        >
-                                            View Details
-                                        </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onSelect(asset.asset_id)}
+                                                className="btn-ornate-ghost w-full text-muted hover:text-foreground font-serif tracking-wider text-sm py-2"
+                                            >
+                                                View Details
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            )
-                        })}
-                    </div>
+                                )
+                            })}
+                        </div>
+                    </>
+                )}
+
+                {!loading && wonAuctions.length > 0 && (
+                    <>
+                        <h2 className="font-serif text-lg text-muted tracking-wider uppercase mb-4">Won via Auction</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {wonAuctions.map(auction => {
+                                const icon = TYPE_ICON[auction.asset_type?.toLowerCase() ?? ''] ?? '📦'
+                                return (
+                                    <div key={auction.id} className="card-hover border border-border overflow-hidden">
+                                        <div className="h-32 bg-surface flex items-center justify-center text-6xl border-b border-border relative">
+                                            {icon}
+                                            <div className="absolute top-3 right-3">
+                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-serif tracking-wider px-3 py-1 border border-status-won/30 text-status-won">
+                                                    <Diamond size="xs" />
+                                                    Won
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="p-5">
+                                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                                                {auction.asset_type && (
+                                                    <span className="text-[10px] font-serif tracking-wider text-dim px-2 py-0.5 border border-gold/10">
+                                                        {auction.asset_type}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <h3 className="font-serif text-foreground font-semibold mb-1 truncate">
+                                                {auction.asset_name ?? `Asset #${auction.asset_id}`}
+                                            </h3>
+                                            <p className="text-dim text-xs font-serif mb-1">
+                                                Won for <span className="text-gold font-mono">{fmtPrice(auction.winning_amount)} USDC</span>
+                                            </p>
+                                            {auction.resolved_at && (
+                                                <p className="text-dim text-xs font-serif mb-4">
+                                                    {new Date(auction.resolved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </p>
+                                            )}
+
+                                            <Link
+                                                href={`/auctions?auctionId=${auction.id}`}
+                                                className="btn-ornate-ghost w-full text-muted hover:text-foreground font-serif tracking-wider text-sm py-2 block text-center"
+                                            >
+                                                View Auction
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </>
                 )}
             </div>
         </div>
@@ -354,22 +428,28 @@ function MyAssetsPageInner() {
     const { account, connected } = useSDK()
     const [assetId, setAssetId] = useQueryState('assetId')
     const [assets, setAssets] = useState<AssetState[]>([])
+    const [wonAuctions, setWonAuctions] = useState<WonAuction[]>([])
     const [loading, setLoading] = useState(false)
 
     useEffect(() => {
         if (!connected || !account) return
         setLoading(true)
-        fetch(`/api/assets?seller=${account}`)
-            .then(r => r.json())
-            .then((data: AssetState[]) => setAssets(Array.isArray(data) ? data : []))
-            .catch(() => setAssets([]))
+        Promise.all([
+            fetch(`/api/assets?seller=${account}`).then(r => r.json()),
+            fetch(`/api/auctions?winner=${account}`).then(r => r.json()),
+        ])
+            .then(([assetsData, auctionsData]) => {
+                setAssets(Array.isArray(assetsData) ? assetsData : [])
+                setWonAuctions(Array.isArray(auctionsData) ? auctionsData.filter((a: any) => a.status === 'resolved') : [])
+            })
+            .catch(() => { setAssets([]); setWonAuctions([]) })
             .finally(() => setLoading(false))
     }, [connected, account])
 
     const selected = assets.find(a => a.asset_id === assetId)
 
     if (selected) return <AssetDetail asset={selected} onBack={() => setAssetId(null)} />
-    return <AssetList assets={assets} loading={loading} onSelect={id => setAssetId(id)} />
+    return <AssetList assets={assets} wonAuctions={wonAuctions} loading={loading} onSelect={id => setAssetId(id)} />
 }
 
 export default function MyAssetsPage() {

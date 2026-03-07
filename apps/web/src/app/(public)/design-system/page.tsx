@@ -82,7 +82,7 @@ export default function DesignSystemPage() {
 						<Swatch name="primary" bg="bg-background" />
 						<Swatch name="surface" bg="bg-surface" />
 						<Swatch name="elevated" bg="bg-elevated" />
-						<Swatch name="secondary" bg="bg-[#111118]" />
+						<Swatch name="secondary" bg="bg-[#222334]" />
 					</div>
 
 					{/* Gold Palette */}

@@ -137,7 +137,10 @@ export default function VerifierPage() {
                     <div className="mb-8">
                         <CRECommandBox
                             txHash={result.txHash}
-                            steps={[{ label: 'AssetVerified', eventIndex: result.eventIndex }]}
+                            steps={[
+                                { label: 'AssetVerified', eventIndex: result.eventIndex },
+                                { label: 'TokensMinted (skip index 1 — ERC-1155 TransferSingle)', eventIndex: result.eventIndex + 2 },
+                            ]}
                             onDone={() => { setResult(null); router.push('/verifier') }}
                         />
                     </div>

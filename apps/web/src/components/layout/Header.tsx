@@ -99,7 +99,7 @@ export function Header() {
 		<header
 			className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
 				scrolled
-					? "bg-[#08080c]/90 backdrop-blur-xl border-b border-gold/10"
+					? "bg-background/90 backdrop-blur-xl border-b border-gold/10"
 					: "bg-transparent"
 			}`}
 		>
@@ -180,7 +180,7 @@ export function Header() {
 										{truncateAddress(account)}
 									</button>
 									{menuOpen && (
-										<div className="absolute right-0 mt-1 w-full bg-[#0a0a10] border border-gold/20 shadow-2xl shadow-black/50">
+										<div className="absolute right-0 mt-1 w-full bg-background border border-gold/20 shadow-2xl shadow-black/50">
 											{!kycVerified && (
 												<Link
 													href="/dashboard"
@@ -238,7 +238,7 @@ export function Header() {
 
 			{/* Mobile nav drawer */}
 			{menuOpen && (
-				<div className="md:hidden border-t border-gold/10 bg-[#08080c]/95 backdrop-blur-xl">
+				<div className="md:hidden border-t border-gold/10 bg-background/95 backdrop-blur-xl">
 					<nav className="max-w-7xl mx-auto px-4 py-4 space-y-1">
 						{visibleLinks.map((link) => (
 							<Link

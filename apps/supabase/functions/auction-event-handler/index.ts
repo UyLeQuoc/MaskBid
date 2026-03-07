@@ -17,6 +17,9 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
   BidRefunded: ["auctionId", "bidder", "amount"],
   AuctionStartTimeUpdated: ["auctionId", "newStartTime"],
   AuctionEndTimeUpdated: ["auctionId", "newEndTime"],
+  WinnerClaimRequired: ["auctionId", "winner", "winningBid"],
+  WinClaimed: ["auctionId", "winner", "totalPaid"],
+  ClaimExpired: ["auctionId", "winner"],
 };
 
 // ============================================================================
@@ -304,6 +307,70 @@ const handlers: Record<
 
     console.log(`Auction ${auctionId} end time updated to ${newEndTime}`);
     return { message: "Auction end time updated", auctionId, newEndTime };
+  },
+
+  // ==========================================================================
+  // WinnerClaimRequired: Update auction to pending_claim state
+  // ==========================================================================
+  async WinnerClaimRequired(client, { auctionId, winner, winningBid }) {
+    const { error } = await client
+      .from("auctions")
+      .update({
+        status: "resolved",
+        winner_address: winner,
+        winning_amount: Number(winningBid) / 1e6,
+      })
+      .eq("contract_auction_id", Number(auctionId));
+
+    if (error) {
+      console.error("Failed to update auction for PendingClaim:", error);
+      throw new Error(error.message);
+    }
+
+    console.log(`Auction ${auctionId} pending claim by ${winner}`);
+    return { message: "Auction pending claim", auctionId, winner };
+  },
+
+  // ==========================================================================
+  // WinClaimed: Winner completed purchase
+  // ==========================================================================
+  async WinClaimed(client, { auctionId, winner, totalPaid }) {
+    const { error } = await client
+      .from("auctions")
+      .update({
+        status: "resolved",
+        resolved_at: new Date().toISOString(),
+      })
+      .eq("contract_auction_id", Number(auctionId));
+
+    if (error) {
+      console.error("Failed to update auction for WinClaimed:", error);
+      throw new Error(error.message);
+    }
+
+    console.log(`Auction ${auctionId} claimed by ${winner}, paid ${totalPaid}`);
+    return { message: "Win claimed", auctionId, winner, totalPaid };
+  },
+
+  // ==========================================================================
+  // ClaimExpired: Winner didn't pay in time
+  // ==========================================================================
+  async ClaimExpired(client, { auctionId, winner, forfeitedDeposit }) {
+    const { error } = await client
+      .from("auctions")
+      .update({
+        status: "cancelled",
+        resolved_at: new Date().toISOString(),
+      })
+      .eq("contract_auction_id", Number(auctionId));
+
+    if (error) {
+      console.error("Failed to update auction for ClaimExpired:", error);
+      throw new Error(error.message);
+    }
+
+    console.log(`Auction ${auctionId} claim expired, ${winner} forfeited ${forfeitedDeposit}`);
+    return { message: "Claim expired", auctionId, winner, forfeitedDeposit };
   },
 
   // ==========================================================================

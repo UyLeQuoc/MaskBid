@@ -66,7 +66,7 @@ const LOGOS: Logo[] = [
 export function LogoMarquee() {
 	return (
 		<section className="border-y border-border py-6" aria-label="Technology partners">
-			<Marquee speed={40} pauseOnHover gradient gradientColor="#08080c" gradientWidth={80}>
+			<Marquee speed={40} pauseOnHover gradient gradientColor="#1a1b28" gradientWidth={80}>
 				{LOGOS.map((logo) => (
 					<div
 						key={logo.name}

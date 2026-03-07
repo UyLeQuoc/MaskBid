@@ -2,10 +2,10 @@
 
 :root {
   /* Backgrounds */
-  --bg-primary: #08080c;
-  --bg-secondary: #111118;
-  --bg-surface: #16161f;
-  --bg-elevated: #1c1c27;
+  --bg-primary: #1a1b28;
+  --bg-secondary: #222334;
+  --bg-surface: #2b2d40;
+  --bg-elevated: #34364c;
 
   /* Gold accent */
   --gold: #c9a84c;
@@ -15,20 +15,20 @@
 
   /* Text */
   --text-primary: #f5f0e8;
-  --text-secondary: #8a8a9a;
-  --text-tertiary: #55556a;
+  --text-secondary: #a8a8bc;
+  --text-tertiary: #7a7a94;
 
   /* Status */
   --status-live: #2d8b5f;
   --status-upcoming: #4a6fa5;
-  --status-ended: #555568;
+  --status-ended: #6e6e82;
   --status-won: #c9a84c;
   --status-error: #8b2d2d;
 
   /* Borders */
-  --border-default: rgba(255, 255, 255, 0.06);
-  --border-hover: rgba(201, 168, 76, 0.3);
-  --border-gold: rgba(201, 168, 76, 0.5);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-hover: rgba(201, 168, 76, 0.35);
+  --border-gold: rgba(201, 168, 76, 0.55);
 
   /* Foreground / Background mapping */
   --background: var(--bg-primary);
@@ -148,7 +148,7 @@ html {
 
 /* Glass card effect */
 .glass-card {
-  background: rgba(22, 22, 31, 0.6);
+  background: rgba(43, 45, 64, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-default);
@@ -181,48 +181,48 @@ html {
 /* 3x3 SVG · square corner notches · certificate/ticket feel */
 .frame-ornate {
   border: 12px solid;
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(22,22,31)" stroke="rgb(201,168,76)" stroke-opacity="0.2" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(43,45,64)" stroke="rgb(201,168,76)" stroke-opacity="0.35" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
   border-image-slice: 1 fill;
 }
 
 .frame-ornate:hover {
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(22,22,31)" stroke="rgb(201,168,76)" stroke-opacity="0.45" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(43,45,64)" stroke="rgb(201,168,76)" stroke-opacity="0.55" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
 }
 
 /* Darker bg variant */
 .frame-ornate-dark {
   border: 12px solid;
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(10,10,16)" stroke="rgb(201,168,76)" stroke-opacity="0.2" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(26,27,40)" stroke="rgb(201,168,76)" stroke-opacity="0.35" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
   border-image-slice: 1 fill;
 }
 
 .frame-ornate-dark:hover {
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(10,10,16)" stroke="rgb(201,168,76)" stroke-opacity="0.45" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(26,27,40)" stroke="rgb(201,168,76)" stroke-opacity="0.55" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
 }
 
 /* ─── Scallop button (thinner border for inline buttons) ─── */
 .btn-ornate {
   border: 8px solid;
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(8,8,12)" stroke="rgb(201,168,76)" stroke-opacity="0.3" stroke-width="0.06"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(26,27,40)" stroke="rgb(201,168,76)" stroke-opacity="0.3" stroke-width="0.06"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
   border-image-slice: 1 fill;
   transition: border-image-source 0.3s ease, box-shadow 0.3s ease;
 }
 
 .btn-ornate:hover {
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(8,8,12)" stroke="rgb(201,168,76)" stroke-opacity="0.6" stroke-width="0.06"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(26,27,40)" stroke="rgb(201,168,76)" stroke-opacity="0.6" stroke-width="0.06"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
   box-shadow: 0 0 30px rgba(201, 168, 76, 0.1);
 }
 
 /* Ghost variant — subtler stroke */
 .btn-ornate-ghost {
   border: 8px solid;
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(8,8,12)" stroke="rgb(201,168,76)" stroke-opacity="0.12" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(26,27,40)" stroke="rgb(201,168,76)" stroke-opacity="0.2" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
   border-image-slice: 1 fill;
   transition: border-image-source 0.3s ease;
 }
 
 .btn-ornate-ghost:hover {
-  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(8,8,12)" stroke="rgb(201,168,76)" stroke-opacity="0.3" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
+  border-image-source: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="3" fill="rgb(26,27,40)" stroke="rgb(201,168,76)" stroke-opacity="0.4" stroke-width="0.05"><path d="M2 0H1C1 .6.6 1 0 1v1c.6 0 1 .4 1 1h1c0-.6.4-1 1-1V1a1 1 0 01-1-1z"/></svg>');
 }
 
 /* Reduced motion */

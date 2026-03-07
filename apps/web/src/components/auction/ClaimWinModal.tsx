@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { BrowserProvider, Contract } from 'ethers'
 import { USDCABI } from '@/abis/USDC'
 import { MaskBidAuctionABI } from '@/abis/MaskBidAuction'
+import { CRECommandBox } from '@/components/CRECommandBox'
 import { env } from '@/configs/env'
 
 type Step = 'info' | 'approve' | 'approving' | 'claiming' | 'success' | 'error'
@@ -54,6 +55,7 @@ export default function ClaimWinModal({
 }: ClaimWinModalProps) {
     const [step, setStep] = useState<Step>('info')
     const [error, setError] = useState<string | null>(null)
+    const [claimTxHash, setClaimTxHash] = useState<string | null>(null)
     const [countdown, setCountdown] = useState(formatDeadlineCountdown(claimDeadline))
 
     const remainingDue = Math.max(0, winningBid - depositPaid)
@@ -85,10 +87,10 @@ export default function ClaimWinModal({
             setStep('claiming')
             const auctionContract = new Contract(auctionContractAddress, MaskBidAuctionABI, signer)
             const claimTx = await auctionContract.claimWin(BigInt(auctionId))
-            await claimTx.wait()
+            const receipt = await claimTx.wait()
+            setClaimTxHash(receipt?.hash ?? claimTx.hash)
 
             setStep('success')
-            onSuccess?.()
         } catch (err) {
             setError(parseContractError(err))
             setStep('error')
@@ -104,7 +106,7 @@ export default function ClaimWinModal({
                 onClick={step === 'success' || step === 'error' ? onClose : undefined}
             />
 
-            <div className="relative glass-card w-full max-w-md">
+            <div className="relative glass-card w-full max-w-lg overflow-y-auto max-h-[90vh]">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gold/10">
                     <div>
@@ -209,11 +211,13 @@ export default function ClaimWinModal({
 
                     {/* SUCCESS step */}
                     {step === 'success' && (
-                        <div className="text-center py-6 space-y-4">
-                            <div className="text-status-live font-serif text-4xl">&#9670;</div>
-                            <h3 className="text-foreground font-serif font-bold text-xl">Claim Complete!</h3>
-                            <p className="text-muted text-sm">Your RWA token has been transferred to your wallet.</p>
-                            <div className="bg-surface border border-status-live/20 p-4 space-y-2 text-sm text-left">
+                        <div className="py-4 space-y-4">
+                            <div className="text-center space-y-2">
+                                <div className="text-status-live font-serif text-4xl">&#9670;</div>
+                                <h3 className="text-foreground font-serif font-bold text-xl">Claim Complete!</h3>
+                                <p className="text-muted text-sm">Your RWA token has been transferred to your wallet.</p>
+                            </div>
+                            <div className="bg-surface border border-status-live/20 p-4 space-y-2 text-sm">
                                 <div className="flex items-center justify-between">
                                     <span className="text-muted font-serif">Total paid</span>
                                     <span className="text-foreground font-mono font-semibold">{formatUsdc(winningBid)} USDC</span>
@@ -225,9 +229,18 @@ export default function ClaimWinModal({
                                     </span>
                                 </div>
                             </div>
+                            {claimTxHash && (
+                                <CRECommandBox
+                                    txHash={claimTxHash}
+                                    steps={[
+                                        { label: 'WinClaimed (skip 0-3: USDC + ERC1155 transfers)', eventIndex: 4 },
+                                    ]}
+                                    command="cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation"
+                                />
+                            )}
                             <button
                                 type="button"
-                                onClick={onClose}
+                                onClick={() => { onSuccess?.(); onClose() }}
                                 className="btn-ornate text-gold font-serif tracking-wider w-full py-3"
                             >
                                 Done
