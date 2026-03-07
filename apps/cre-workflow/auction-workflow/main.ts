@@ -130,8 +130,10 @@ const triggerSolver = (
         owner: config.owner,
       },
     ],
-    // Enable response encryption - even the winner is encrypted until consensus
-    encryptOutput: true,
+    // Auth token is still confidential (injected by VaultDON).
+    // Response encryption disabled so the workflow can parse the result
+    // and submit it on-chain via EVMClient.
+    encryptOutput: false,
   };
 
   // Send the request through the confidential enclave
@@ -141,20 +143,23 @@ const triggerSolver = (
     throw new Error(`Solver refused connection: ${resp.statusCode}`);
   }
 
-  // When encryptOutput is true, the response is AES-GCM encrypted
-  // The DON aggregates encrypted responses and delivers to Forwarder
-  runtime.log(
-    `📦 Encrypted response received (${resp.body?.length || 0} bytes)`,
-  );
-  runtime.log("🔐 Response is AES-GCM encrypted (only enclave can decrypt)");
+  // Decode and parse the solver response
+  if (!resp.body) {
+    throw new Error("Solver returned empty response");
+  }
 
-  // Return placeholder - actual winner data is in encrypted report
+  const bodyBytes = Buffer.from(resp.body, "base64");
+  const solverResult = JSON.parse(new TextDecoder().decode(bodyBytes));
+
+  runtime.log(`📦 Solver response: winner=${solverResult.winner}, amount=${solverResult.amount}`);
+
   return {
-    winner: "0xEncrypted",
-    amount: 0,
+    winner: solverResult.winner,
+    amount: solverResult.amount,
     auctionId: auction.auction_id,
-    contractAuctionId: auction.contract_auction_id,
-    encrypted: true,
+    contractAuctionId: solverResult.contractAuctionId ?? auction.contract_auction_id,
+    encrypted: false,
+    report: solverResult.report,
   };
 };
 
@@ -178,15 +183,8 @@ const resolveAuction = (
     )(config)
     .result();
 
-  if (result.encrypted) {
-    runtime.log("✅ Auction resolved via encrypted channel!");
-    runtime.log(
-      "🔐 Winner data is encrypted (accessible only after consensus)",
-    );
-  } else {
-    runtime.log(`✅ Auction resolved! Winner: ${result.winner}`);
-    runtime.log(`💰 Winning bid: ${result.amount}`);
-  }
+  runtime.log(`✅ Auction resolved! Winner: ${result.winner}`);
+  runtime.log(`💰 Winning bid: ${result.amount}`);
   runtime.log(`📦 Auction ID: ${result.auctionId}`);
 
   return result;
@@ -297,18 +295,24 @@ const onCronTick = (runtime: Runtime<Config>): string => {
 
     runtime.log(`🎯 Found ${endedAuctions.length} ended auction(s) to resolve`);
 
-    const results = [];
+    const results: Record<string, unknown>[] = [];
 
     for (const auction of endedAuctions) {
       try {
         // Step 1: Resolve auction via confidential solver
         const result = resolveAuction(runtime, auction);
 
+        // Step 2: Submit winner on-chain via Forwarder
+        let txHash: string | undefined;
+        if (result.winner && result.amount > 0) {
+          txHash = submitWinnerOnChain(runtime, auction, result.winner, result.amount);
+        }
+
         results.push({
           auctionId: auction.auction_id,
           contractAuctionId: auction.contract_auction_id,
           status: "resolved",
-          encrypted: result.encrypted,
+          txHash,
         });
       } catch (error) {
         runtime.log(`❌ Failed to resolve auction ${auction.auction_id}: ${(error as Error).message}`);
@@ -361,13 +365,24 @@ const onHttpTrigger = async (runtime: Runtime<Config>): Promise<string> => {
 
   const result = resolveAuction(runtime, mockAuction);
 
+  // Update mock auction with real contract ID from solver response
+  if (result.contractAuctionId) {
+    mockAuction.contract_auction_id = result.contractAuctionId;
+  }
+
+  // Submit winner on-chain
+  let txHash: string | undefined;
+  if (result.winner && result.amount > 0) {
+    txHash = submitWinnerOnChain(runtime, mockAuction, result.winner, result.amount);
+  }
+
   return JSON.stringify({
     trigger: "http",
     auctionId: config.auctionId,
-    winner: result.encrypted ? "encrypted" : result.winner,
-    amount: result.encrypted ? 0 : result.amount,
+    winner: result.winner,
+    amount: result.amount,
     contractAuctionId: result.contractAuctionId,
-    encrypted: result.encrypted,
+    txHash,
     timestamp: new Date().toISOString(),
   });
 };

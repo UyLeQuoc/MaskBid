@@ -47,7 +47,12 @@ temp/
 Thumbs.db
 
 # Misc
-*.pemapps/cre-workflow/contracts/output/
+*.pem
+
+# CRE workflow build artifacts
+.cre_build_tmp.js
+
+apps/cre-workflow/contracts/output/
 apps/cre-workflow/contracts/abi/
 
 .temp
