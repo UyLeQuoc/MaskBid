@@ -310,7 +310,7 @@ MIT — fork freely and build on top of it.
 
 ## Built By
 
-**Lê Quốc Uy** — [Chainlink Convergence Hackathon 2026](https://chain.link/hackathon)
+[Chainlink Convergence Hackathon 2026](https://chain.link/hackathon)
 
 ---
 
