@@ -3,7 +3,7 @@
   "url": "https://npcwptlazfyhwepiuctf.supabase.co/functions/v1/asset-handler",
   "evms": [
     {
-      "assetAddress": "0x56bc013eadd5ecec7e9cc23af648605447ddcf56",
+      "assetAddress": "0xf55d1b3cdcdc1c159d301537751ccde86ad7dadd",
       "chainSelectorName": "ethereum-testnet-sepolia",
       "gasLimit": "1000000"
     }

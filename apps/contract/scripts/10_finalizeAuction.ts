@@ -8,7 +8,7 @@ const { walletClient, publicClient, account } = createSepoliaClients();
 // ================================================
 const auctionAbi = parseAbi([
   "function finalizeAuction(uint256 auctionId, address winner, uint256 winningBid) external",
-  "function auctions(uint256) external view returns (uint256 tokenId, uint256 tokenAmount, address seller, uint256 reservePrice, uint256 depositRequired, uint256 startTime, uint256 endTime, uint8 state, address winner, uint256 winningBid, uint256 bidCount)",
+  "function auctions(uint256) external view returns (uint256 tokenId, uint256 tokenAmount, address seller, uint256 reservePrice, uint256 depositRequired, uint256 startTime, uint256 endTime, uint8 state, address winner, uint256 winningBid, uint256 bidCount, uint256 claimDeadline)",
   "event AuctionFinalized(uint256 indexed auctionId, address indexed winner, uint256 indexed winningBid)",
 ]);
 
@@ -38,11 +38,15 @@ async function main() {
       args: [finalizeParams.auctionId],
     });
 
-    const stateNames = ["Created", "Active", "Ended", "Finalized", "Cancelled"];
+    const stateNames = ["Created", "Active", "Ended", "PendingClaim", "Finalized", "Cancelled"];
     console.log("Current auction state:", stateNames[auction[7]] || "Unknown");
     console.log("Bid count:", auction[10].toString());
 
     if (auction[7] === 3) {
+      console.log("Auction already in PendingClaim — winner must call claimWin().");
+      return;
+    }
+    if (auction[7] === 4) {
       console.log("Auction already finalized!");
       return;
     }

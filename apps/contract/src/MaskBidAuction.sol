@@ -19,15 +19,16 @@ import {ReceiverTemplate} from "./interfaces/ReceiverTemplate.sol";
  *        - User: auctioneer (creates auctions) & bidder (places bids)
  *
  *      Auction lifecycle:
- *        Created → Active → Ended → Finalized → (done)
+ *        Created → Active → Ended → PendingClaim → Finalized → (done)
  *                                 → Cancelled  → (refunds)
+ *        PendingClaim → Cancelled (on expireClaim after deadline)
  *
  *      Bids are sealed (only bidHash stored on-chain). The actual bid amount
  *      is encrypted off-chain and resolved by the Chainlink CRE solver.
  *      USDC escrow is locked on bid placement; losers reclaim after finalization.
  *
  *      RWA token (ERC-1155) is escrowed in this contract when auction is created,
- *      and transferred to the winner on finalization.
+ *      and transferred to the winner on finalization (claimWin).
  *
  *      CRE integration via ReceiverTemplate: the _processReport callback
  *      receives (auctionId, winner, winningBid) from the Confidential Enclave.
@@ -46,7 +47,7 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
     IERC20 public immutable usdc;
     IERC1155 public immutable rwaToken; // MaskBidAsset (ERC-1155)
 
-    enum AuctionState { Created, Active, Ended, Finalized, Cancelled }
+    enum AuctionState { Created, Active, Ended, PendingClaim, Finalized, Cancelled }
 
     struct Auction {
         uint256 tokenId;         // RWA token ID from TokenizedAssetPlatform
@@ -60,6 +61,7 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
         address winner;          // Set by CRE on finalization
         uint256 winningBid;      // Set by CRE on finalization
         uint256 bidCount;        // Number of sealed bids received
+        uint256 claimDeadline;   // Deadline for winner to call claimWin (set on PendingClaim)
     }
 
     struct Bid {
@@ -117,6 +119,27 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
         uint256 indexed auctionId,
         address indexed bidder,
         uint256 amount
+    );
+
+    event WinnerClaimRequired(
+        uint256 indexed auctionId,
+        address indexed winner,
+        uint256 winningBid,
+        uint256 depositPaid,
+        uint256 balanceDue,
+        uint256 deadline
+    );
+
+    event WinClaimed(
+        uint256 indexed auctionId,
+        address indexed winner,
+        uint256 totalPaid
+    );
+
+    event ClaimExpired(
+        uint256 indexed auctionId,
+        address indexed winner,
+        uint256 forfeitedDeposit
     );
 
     /// @dev Test-only: emitted when start time is overridden for demo purposes
@@ -199,7 +222,8 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
             state: AuctionState.Created,
             winner: address(0),
             winningBid: 0,
-            bidCount: 0
+            bidCount: 0,
+            claimDeadline: 0
         });
 
         emit AuctionCreated(
@@ -279,8 +303,8 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
 
     /**
      * @notice Finalize an auction by setting the winner. Can only be called by admin
-     *         or via CRE _processReport. Transfers the RWA token to the winner and
-     *         USDC escrow to the seller.
+     *         or via CRE _processReport. Sets state to PendingClaim — the winner
+     *         must call claimWin() within 48 hours to complete the purchase.
      * @param auctionId The auction to finalize
      * @param winner The winning bidder address
      * @param winningBid The winning bid amount in USDC
@@ -294,15 +318,111 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
     }
 
     /**
-     * @notice Claim USDC escrow refund as a losing bidder after auction is finalized.
+     * @notice Winner calls this to complete the purchase after finalization.
+     *         Pulls the remaining USDC (winningBid - deposit) from the winner,
+     *         transfers the RWA token to the winner, and USDC to the seller.
+     * @param auctionId The auction ID
+     */
+    function claimWin(uint256 auctionId) external nonReentrant {
+        Auction storage auction = auctions[auctionId];
+
+        require(auction.seller != address(0), "Auction does not exist");
+        require(auction.state == AuctionState.PendingClaim, "Auction not in PendingClaim state");
+        require(msg.sender == auction.winner, "Only winner can claim");
+        require(block.timestamp <= auction.claimDeadline, "Claim deadline has passed");
+
+        auction.state = AuctionState.Finalized;
+
+        // Find winner's bid and mark as consumed
+        uint256 depositAmount = 0;
+        for (uint256 i = 0; i < auction.bidCount; i++) {
+            Bid storage bid = auctionBids[auctionId][i];
+            if (bid.bidder == auction.winner && !bid.refunded) {
+                bid.refunded = true;
+                depositAmount = bid.escrowAmount;
+                break;
+            }
+        }
+
+        // Pull remaining USDC from winner if winningBid > deposit
+        uint256 remainingDue = auction.winningBid > depositAmount
+            ? auction.winningBid - depositAmount
+            : 0;
+
+        if (remainingDue > 0) {
+            usdc.safeTransferFrom(auction.winner, address(this), remainingDue);
+        }
+
+        // Transfer total USDC (deposit + remaining) to seller
+        uint256 totalToSeller = depositAmount + remainingDue;
+        if (totalToSeller > 0) {
+            usdc.safeTransfer(auction.seller, totalToSeller);
+        }
+
+        // Transfer RWA token to winner
+        rwaToken.safeTransferFrom(
+            address(this), auction.winner,
+            auction.tokenId, auction.tokenAmount, ""
+        );
+
+        emit WinClaimed(auctionId, auction.winner, totalToSeller);
+        emit AuctionFinalized(auctionId, auction.winner, auction.winningBid);
+    }
+
+    /**
+     * @notice Anyone can call this after the claim deadline passes to expire the pending claim.
+     *         The winner's deposit is forfeited to the seller as compensation.
+     *         The RWA token is returned to the seller.
+     *         State is set to Cancelled so losing bidders can claimRefund.
+     * @param auctionId The auction ID
+     */
+    function expireClaim(uint256 auctionId) external nonReentrant {
+        Auction storage auction = auctions[auctionId];
+
+        require(auction.seller != address(0), "Auction does not exist");
+        require(auction.state == AuctionState.PendingClaim, "Auction not in PendingClaim state");
+        require(block.timestamp > auction.claimDeadline, "Claim deadline has not passed");
+
+        auction.state = AuctionState.Cancelled;
+
+        // Forfeit winner's deposit to seller as compensation
+        uint256 forfeitedDeposit = 0;
+        for (uint256 i = 0; i < auction.bidCount; i++) {
+            Bid storage bid = auctionBids[auctionId][i];
+            if (bid.bidder == auction.winner && !bid.refunded) {
+                bid.refunded = true;
+                forfeitedDeposit = bid.escrowAmount;
+                break;
+            }
+        }
+
+        if (forfeitedDeposit > 0) {
+            usdc.safeTransfer(auction.seller, forfeitedDeposit);
+        }
+
+        // Return RWA token to seller
+        rwaToken.safeTransferFrom(
+            address(this), auction.seller,
+            auction.tokenId, auction.tokenAmount, ""
+        );
+
+        emit ClaimExpired(auctionId, auction.winner, forfeitedDeposit);
+        emit AuctionCancelled(auctionId, msg.sender);
+    }
+
+    /**
+     * @notice Claim USDC escrow refund as a losing bidder after auction is finalized or cancelled.
+     *         Non-winners can also claim during PendingClaim state without waiting for winner.
      * @param auctionId The auction ID
      */
     function claimRefund(uint256 auctionId) external nonReentrant {
         Auction storage auction = auctions[auctionId];
 
         require(
-            auction.state == AuctionState.Finalized || auction.state == AuctionState.Cancelled,
-            "Auction not finalized or cancelled"
+            auction.state == AuctionState.Finalized ||
+            auction.state == AuctionState.Cancelled ||
+            auction.state == AuctionState.PendingClaim,
+            "Auction not finalized, pending claim, or cancelled"
         );
 
         // Find the bidder's bid
@@ -310,9 +430,11 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
         for (uint256 i = 0; i < auction.bidCount; i++) {
             Bid storage bid = auctionBids[auctionId][i];
             if (bid.bidder == msg.sender && !bid.refunded) {
-                // Winner doesn't get a refund (their escrow is kept as partial payment)
-                // unless the auction was cancelled
-                if (auction.state == AuctionState.Finalized && msg.sender == auction.winner) {
+                // Winner cannot claim refund in Finalized or PendingClaim states
+                if (
+                    (auction.state == AuctionState.Finalized || auction.state == AuctionState.PendingClaim)
+                    && msg.sender == auction.winner
+                ) {
                     revert("Winner cannot claim refund");
                 }
 
@@ -440,28 +562,30 @@ contract MaskBidAuction is AccessControl, ReentrancyGuard, ERC1155Holder, Receiv
         require(winner != address(0), "Invalid winner address");
         require(hasBid[auctionId][winner], "Winner has not bid on this auction");
 
-        auction.state = AuctionState.Finalized;
+        auction.state = AuctionState.PendingClaim;
         auction.winner = winner;
         auction.winningBid = winningBid;
+        auction.claimDeadline = block.timestamp + 48 hours;
 
-        // Transfer the escrowed RWA token to the winner
-        rwaToken.safeTransferFrom(
-            address(this), winner,
-            auction.tokenId, auction.tokenAmount, ""
-        );
-
-        // Transfer the winner's USDC escrow to the seller
-        // (The winner's deposit goes to the seller as partial/full payment)
+        // Find winner's deposit amount for the event
+        uint256 depositPaid = 0;
         for (uint256 i = 0; i < auction.bidCount; i++) {
-            Bid storage bid = auctionBids[auctionId][i];
-            if (bid.bidder == winner && !bid.refunded) {
-                bid.refunded = true; // Mark as consumed (not actually a refund)
-                usdc.safeTransfer(auction.seller, bid.escrowAmount);
+            if (auctionBids[auctionId][i].bidder == winner) {
+                depositPaid = auctionBids[auctionId][i].escrowAmount;
                 break;
             }
         }
 
-        emit AuctionFinalized(auctionId, winner, winningBid);
+        uint256 balanceDue = winningBid > depositPaid ? winningBid - depositPaid : 0;
+
+        emit WinnerClaimRequired(
+            auctionId,
+            winner,
+            winningBid,
+            depositPaid,
+            balanceDue,
+            auction.claimDeadline
+        );
     }
 
     // ================================================================

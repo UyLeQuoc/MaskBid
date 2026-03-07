@@ -5,6 +5,7 @@ import { useQueryState } from 'nuqs'
 import { useRouter } from 'next/navigation'
 import { BrowserProvider, Contract, Interface, type Eip1193Provider } from 'ethers'
 import BidModal from '@/components/auction/BidModal'
+import ClaimWinModal from '@/components/auction/ClaimWinModal'
 import { MaskBidAuctionABI } from '@/abis/MaskBidAuction'
 import { CRECommandBox } from '@/components/CRECommandBox'
 import { env } from '@/configs/env'
@@ -85,6 +86,20 @@ function PhaseBadge({ phase }: { phase: Phase }) {
     )
 }
 
+// AuctionState enum indices (matches MaskBidAuction.sol)
+const AUCTION_STATE = { Created: 0, Active: 1, Ended: 2, PendingClaim: 3, Finalized: 4, Cancelled: 5 }
+
+// ---------------------------------------------------------------------------
+// Claim target
+// ---------------------------------------------------------------------------
+type ClaimTarget = {
+    auctionId: number
+    auctionName: string
+    winningBid: number       // USDC units (6 decimals)
+    depositPaid: number      // USDC units (6 decimals)
+    claimDeadline: number    // unix timestamp
+}
+
 // ---------------------------------------------------------------------------
 // Bid target
 // ---------------------------------------------------------------------------
@@ -125,8 +140,9 @@ function Countdown({ targetMs, phase }: { targetMs: number; phase: Phase }) {
 // ---------------------------------------------------------------------------
 // Auction card
 // ---------------------------------------------------------------------------
-function AuctionCard({ auction, now, onView, onBid }: {
+function AuctionCard({ auction, now, onView, onBid, onClaim, walletAddress }: {
     auction: Auction; now: number; onView: () => void; onBid: () => void
+    onClaim: (auctionId: string) => void; walletAddress: string | null
 }) {
     const phase = getPhase(auction, now)
     const startsAt = new Date(auction.started_at).getTime()
@@ -135,6 +151,12 @@ function AuctionCard({ auction, now, onView, onBid }: {
     const name = auction.asset_name ?? `Asset #${auction.token_id ?? auction.asset_id}`
     const icon = TYPE_ICON[(auction.asset_type ?? '').toLowerCase()] ?? '📦'
     const countdownLabel = phase === 'upcoming' ? 'Starts in' : phase === 'live' ? 'Ends in' : 'Status'
+
+    // Show Claim Win when Supabase marks as resolved + connected wallet is the winner
+    const isWinnerWaiting =
+        auction.status === 'resolved' &&
+        !!auction.winner_address &&
+        walletAddress?.toLowerCase() === auction.winner_address.toLowerCase()
 
     return (
         <div
@@ -218,6 +240,15 @@ function AuctionCard({ auction, now, onView, onBid }: {
                         <span className="flex-1 text-sm font-serif tracking-wider text-status-upcoming/50 border border-status-upcoming/10 py-2 text-center cursor-not-allowed">
                             Not Open Yet
                         </span>
+                    )}
+                    {isWinnerWaiting && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onClaim(auction.id) }}
+                            className="btn-ornate flex-1 text-sm font-serif tracking-wider text-gold py-2"
+                        >
+                            Claim Win
+                        </button>
                     )}
                 </div>
             </div>
@@ -335,8 +366,9 @@ function TestControls({ auction, phase }: { auction: Auction; phase: Phase }) {
 // ---------------------------------------------------------------------------
 // Auction detail
 // ---------------------------------------------------------------------------
-function AuctionDetail({ auction, now, onBack, onBid }: {
+function AuctionDetail({ auction, now, onBack, onBid, onClaim, walletAddress }: {
     auction: Auction; now: number; onBack: () => void; onBid: () => void
+    onClaim: (target: ClaimTarget) => void; walletAddress: string | null
 }) {
     const phase = getPhase(auction, now)
     const startsAt = new Date(auction.started_at).getTime()
@@ -345,6 +377,44 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
 
     const name = auction.asset_name ?? `Asset #${auction.token_id ?? auction.asset_id}`
     const icon = TYPE_ICON[(auction.asset_type ?? '').toLowerCase()] ?? '📦'
+
+    const [onChainState, setOnChainState] = useState<number | null>(null)
+    const [onChainData, setOnChainData] = useState<{
+        winningBid: bigint; depositRequired: bigint; claimDeadline: bigint
+    } | null>(null)
+
+    const auctionContractAddress = env.NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS
+
+    useEffect(() => {
+        if (!auction.contract_auction_id || !auctionContractAddress) return
+        const eth = (window as Window & { ethereum?: Eip1193Provider }).ethereum
+        if (!eth) return
+        const provider = new BrowserProvider(eth)
+        const contract = new Contract(auctionContractAddress, MaskBidAuctionABI, provider)
+        contract.getAuction(BigInt(auction.contract_auction_id)).then((data: any) => {
+            setOnChainState(Number(data.state))
+            setOnChainData({
+                winningBid: data.winningBid,
+                depositRequired: data.depositRequired,
+                claimDeadline: data.claimDeadline,
+            })
+        }).catch(() => { /* ignore read errors */ })
+    }, [auction.contract_auction_id, auctionContractAddress])
+
+    const isPendingClaim = onChainState === AUCTION_STATE.PendingClaim
+    const isWinner = !!walletAddress && !!auction.winner_address &&
+        walletAddress.toLowerCase() === auction.winner_address.toLowerCase()
+
+    const handleClaim = () => {
+        if (!auction.contract_auction_id || !onChainData) return
+        onClaim({
+            auctionId: auction.contract_auction_id,
+            auctionName: name,
+            winningBid: Number(onChainData.winningBid),
+            depositPaid: Number(onChainData.depositRequired),
+            claimDeadline: Number(onChainData.claimDeadline),
+        })
+    }
 
     return (
         <div className="min-h-screen bg-background text-foreground pt-24 pb-20">
@@ -390,7 +460,12 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
                                             )}
                                         </>
                                     ) : (
-                                        <p className="text-sm font-serif text-dim">Awaiting resolution by Chainlink CRE</p>
+                                        <>
+                                            <p className="text-sm font-serif text-dim mb-3">Awaiting resolution by Chainlink CRE</p>
+                                            <CRECommandBox
+                                                command="cre workflow simulate auction-workflow --broadcast --target local-simulation"
+                                            />
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -475,7 +550,29 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
                                     Bidding opens in {formatMs(targetMs)}
                                 </div>
                             )}
-                            {phase === 'ended' && (
+                            {phase === 'ended' && isPendingClaim && isWinner && (
+                                <div className="space-y-3">
+                                    <div className="bg-surface border border-gold/20 px-4 py-3 text-sm flex items-center justify-between">
+                                        <span className="text-muted font-serif">You won this auction</span>
+                                        <span className="text-gold font-mono font-semibold">
+                                            {onChainData ? (Number(onChainData.winningBid) / 1e6).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'} USDC
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleClaim}
+                                        className="btn-ornate w-full text-gold font-serif tracking-wider py-3.5 text-base"
+                                    >
+                                        Claim Win
+                                    </button>
+                                </div>
+                            )}
+                            {phase === 'ended' && isPendingClaim && !isWinner && (
+                                <div className="w-full border border-status-upcoming/20 text-status-upcoming/60 font-serif tracking-wider py-3.5 text-center text-sm">
+                                    Awaiting Winner Payment
+                                </div>
+                            )}
+                            {phase === 'ended' && !isPendingClaim && (
                                 <div className="w-full border border-border text-dim font-serif tracking-wider py-3.5 text-center text-sm">
                                     Auction Closed
                                 </div>
@@ -516,9 +613,11 @@ function AuctionDetail({ auction, now, onBack, onBid }: {
 // ---------------------------------------------------------------------------
 // Auction list
 // ---------------------------------------------------------------------------
-function AuctionList({ onView, onBid }: {
+function AuctionList({ onView, onBid, onClaim, walletAddress }: {
     onView: (id: string) => void
     onBid: (target: BidTarget) => void
+    onClaim: (auctionId: string) => void
+    walletAddress: string | null
 }) {
     const router = useRouter()
     const now = useNow()
@@ -668,6 +767,8 @@ function AuctionList({ onView, onBid }: {
                                 now={now}
                                 onView={() => onView(auction.id)}
                                 onBid={() => onBid(toBidTarget(auction, now))}
+                                onClaim={onClaim}
+                                walletAddress={walletAddress}
                             />
                         ))}
                     </div>
@@ -684,9 +785,48 @@ function AuctionsPageInner() {
     const now = useNow()
     const [auctionId, setAuctionId] = useQueryState('auctionId')
     const [bidTarget, setBidTarget] = useState<BidTarget | null>(null)
+    const [claimTarget, setClaimTarget] = useState<ClaimTarget | null>(null)
+    const [walletAddress, setWalletAddress] = useState<string | null>(null)
     const { auctions } = useAuctions()
 
     const selected = auctionId ? auctions.find(a => a.id === auctionId) ?? null : null
+
+    // Detect connected wallet (no prompt)
+    useEffect(() => {
+        const eth = (window as Window & { ethereum?: Eip1193Provider }).ethereum
+        if (!eth) return
+        const provider = new BrowserProvider(eth)
+        provider.listAccounts().then(accounts => {
+            if (accounts.length > 0) setWalletAddress(accounts[0].address)
+        }).catch(() => {})
+
+        const onAccountsChanged = (accounts: string[]) => {
+            setWalletAddress(accounts[0] ?? null)
+        }
+        ;(eth as any).on?.('accountsChanged', onAccountsChanged)
+        return () => { (eth as any).removeListener?.('accountsChanged', onAccountsChanged) }
+    }, [])
+
+    // Resolve claimTarget from auction id (for card → detail path)
+    const handleClaimFromCard = async (id: string) => {
+        const auction = auctions.find(a => a.id === id)
+        if (!auction?.contract_auction_id) return
+        const auctionContractAddress = env.NEXT_PUBLIC_AUCTION_CONTRACT_ADDRESS
+        const eth = (window as Window & { ethereum?: Eip1193Provider }).ethereum
+        if (!eth || !auctionContractAddress) return
+        try {
+            const provider = new BrowserProvider(eth)
+            const contract = new Contract(auctionContractAddress, MaskBidAuctionABI, provider)
+            const data = await contract.getAuction(BigInt(auction.contract_auction_id))
+            setClaimTarget({
+                auctionId: auction.contract_auction_id,
+                auctionName: auction.asset_name ?? `Asset #${auction.asset_id}`,
+                winningBid: Number(data.winningBid),
+                depositPaid: Number(data.depositRequired),
+                claimDeadline: Number(data.claimDeadline),
+            })
+        } catch { /* ignore */ }
+    }
 
     return (
         <>
@@ -696,11 +836,15 @@ function AuctionsPageInner() {
                     now={now}
                     onBack={() => setAuctionId(null)}
                     onBid={() => setBidTarget(toBidTarget(selected, now))}
+                    onClaim={setClaimTarget}
+                    walletAddress={walletAddress}
                 />
             ) : (
                 <AuctionList
                     onView={id => setAuctionId(id)}
                     onBid={target => setBidTarget(target)}
+                    onClaim={handleClaimFromCard}
+                    walletAddress={walletAddress}
                 />
             )}
 
@@ -708,6 +852,18 @@ function AuctionsPageInner() {
                 <BidModal
                     auction={bidTarget}
                     onClose={() => setBidTarget(null)}
+                />
+            )}
+
+            {claimTarget && (
+                <ClaimWinModal
+                    auctionId={claimTarget.auctionId}
+                    auctionName={claimTarget.auctionName}
+                    winningBid={claimTarget.winningBid}
+                    depositPaid={claimTarget.depositPaid}
+                    claimDeadline={claimTarget.claimDeadline}
+                    onClose={() => setClaimTarget(null)}
+                    onSuccess={() => setClaimTarget(null)}
                 />
             )}
         </>

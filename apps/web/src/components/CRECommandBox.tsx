@@ -10,8 +10,8 @@ type CREStep = {
 }
 
 type Props = {
-    txHash: string
-    steps: CREStep[]
+    txHash?: string
+    steps?: CREStep[]
     command?: string
     onDone?: () => void
 }
@@ -49,21 +49,23 @@ export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: P
 
             <div className="h-px bg-gold/10" />
 
-            {/* Tx hash */}
-            <div>
-                <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-dim text-xs font-serif tracking-wide">Transaction hash</p>
-                    <CopyButton text={txHash} />
+            {/* Tx hash — only shown when provided */}
+            {txHash && (
+                <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-dim text-xs font-serif tracking-wide">Transaction hash</p>
+                        <CopyButton text={txHash} />
+                    </div>
+                    <a
+                        href={`${EXPLORER_URL}/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gold/60 hover:text-gold break-all transition-colors text-xs"
+                    >
+                        {txHash}
+                    </a>
                 </div>
-                <a
-                    href={`${EXPLORER_URL}/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gold/60 hover:text-gold break-all transition-colors text-xs"
-                >
-                    {txHash}
-                </a>
-            </div>
+            )}
 
             {/* Command */}
             <div>
@@ -76,42 +78,44 @@ export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: P
                 </div>
             </div>
 
-            {/* Steps */}
-            <div className="space-y-3">
-                <p className="text-dim text-xs font-serif tracking-wide">When prompted by the CLI, enter these values:</p>
-                {steps.map((step, i) => (
-                    <div key={step.label} className="border border-border bg-background divide-y divide-border">
-                        <div className="px-4 py-2 flex items-center gap-2">
-                            <span className="text-gold/40 text-[6px]">&#9670;</span>
-                            <p className="text-muted text-xs font-serif tracking-wider">Step {i + 1}: {step.label}</p>
-                        </div>
-
-                        <div className="px-4 py-2.5 flex items-center justify-between">
-                            <div>
-                                <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Trigger type</p>
-                                <p className="text-gold font-mono text-xs">1 <span className="text-dim font-serif">(LogTrigger)</span></p>
+            {/* Steps — only shown when provided */}
+            {steps && steps.length > 0 && (
+                <div className="space-y-3">
+                    <p className="text-dim text-xs font-serif tracking-wide">When prompted by the CLI, enter these values:</p>
+                    {steps.map((step, i) => (
+                        <div key={step.label} className="border border-border bg-background divide-y divide-border">
+                            <div className="px-4 py-2 flex items-center gap-2">
+                                <span className="text-gold/40 text-[6px]">&#9670;</span>
+                                <p className="text-muted text-xs font-serif tracking-wider">Step {i + 1}: {step.label}</p>
                             </div>
-                            <CopyButton text="1" />
-                        </div>
 
-                        <div className="px-4 py-2.5 flex items-center justify-between">
-                            <div className="min-w-0 flex-1 mr-3">
-                                <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Transaction hash</p>
-                                <p className="text-gold/60 text-xs truncate">{txHash}</p>
+                            <div className="px-4 py-2.5 flex items-center justify-between">
+                                <div>
+                                    <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Trigger type</p>
+                                    <p className="text-gold font-mono text-xs">1 <span className="text-dim font-serif">(LogTrigger)</span></p>
+                                </div>
+                                <CopyButton text="1" />
                             </div>
-                            <CopyButton text={txHash} />
-                        </div>
 
-                        <div className="px-4 py-2.5 flex items-center justify-between">
-                            <div>
-                                <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Event index</p>
-                                <p className="text-gold font-mono text-xs">{step.eventIndex}</p>
+                            <div className="px-4 py-2.5 flex items-center justify-between">
+                                <div className="min-w-0 flex-1 mr-3">
+                                    <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Transaction hash</p>
+                                    <p className="text-gold/60 text-xs truncate">{txHash}</p>
+                                </div>
+                                <CopyButton text={txHash ?? ''} />
                             </div>
-                            <CopyButton text={String(step.eventIndex)} />
+
+                            <div className="px-4 py-2.5 flex items-center justify-between">
+                                <div>
+                                    <p className="text-dim text-[10px] font-serif tracking-wide mb-0.5">Event index</p>
+                                    <p className="text-gold font-mono text-xs">{step.eventIndex}</p>
+                                </div>
+                                <CopyButton text={String(step.eventIndex)} />
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {onDone && (
                 <>
