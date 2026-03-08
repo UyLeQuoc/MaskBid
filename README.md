@@ -1,20 +1,22 @@
 # MaskBid: The Dark Auction
+
 **Sealed-bid auctions for Real World Assets — Private, Verified, and Bot-Free.**
 
 > Built for **Chainlink Convergence Hackathon 2026**
 >
-> | Track | Prize Pool | Fit |
-> |-------|-----------|-----|
-> | **Privacy** (Chainlink Confidential Compute) | $32,000 | Sealed-bid auction = exact example use case |
-> | **DeFi & Tokenization** | $40,000 | RWA tokenization + on-chain settlement |
-> | **Tenderly Virtual TestNets** | $9,000 | 3 CRE workflows tested on Virtual TestNet |
-> | **World ID + CRE** | $10,000 | Human-gated bidding via World ID KYC |
+> | Track                                        | Fit                                         |
+> | -------------------------------------------- | ------------------------------------------- |
+> | **Privacy** (Chainlink Confidential Compute) | Sealed-bid auction = exact example use case |
+> | **DeFi & Tokenization**                      | RWA tokenization + on-chain settlement      |
+> | **Tenderly Virtual TestNets**                | 4 CRE workflows tested on Virtual TestNet   |
+> | **World ID + CRE**                           | Human-gated bidding via World ID KYC        |
 
 ---
 
 ## The Problem
 
 Traditional on-chain auctions are broken:
+
 - **Public bids** → sniper bots and front-running destroy fair price discovery
 - **No identity layer** → Sybil attacks inflate bid counts with fake wallets
 - **Mempool exposure** → last-second manipulation is trivial
@@ -24,12 +26,13 @@ Traditional on-chain auctions are broken:
 MaskBid is a decentralized sealed-bid auction platform for high-value Real World Assets (watches, art, gold, real estate). Every bid is encrypted in the browser and can only be decrypted by Chainlink's secure enclave — after the auction ends.
 
 **Three guarantees that have never coexisted before:**
+
 - **Confidential bids** — RSA-OAEP encrypted client-side; unreadable by anyone, including database admins
 - **Proof of Personhood** — World ID ensures 1 human = 1 bid; no bots, no Sybil attacks
 - **Trustless settlement** — Chainlink CRE decrypts all bids simultaneously in a secure enclave, picks the winner, and finalizes on-chain
 
 > MaskBid is the **Privacy track reference implementation** for the Chainlink Convergence Hackathon.
-> Chainlink's own track description lists *"Sealed-bid auctions with private payments"* as the first example use case. That is MaskBid.
+> Chainlink's own track description lists _"Sealed-bid auctions with private payments"_ as the first example use case. That is MaskBid.
 
 ---
 
@@ -43,13 +46,13 @@ World ID proof   →   Browse ERC-1155 RWAs →  RSA-encrypt in browser →  CRE
 
 ### The Privacy Guarantee
 
-| Party | Can see bid amounts? | Why |
-|-------|---------------------|-----|
-| Other bidders | No | Only bid count shown |
-| Seller | No | Only sees count, not amounts |
-| Blockchain observers | No | Only SHA-256 hash on-chain |
-| Supabase admin | No | RSA-OAEP ciphertext — unreadable |
-| CRE enclave | Yes, at resolution only | Has private key; runs after auction ends |
+| Party                | Can see bid amounts?    | Why                                      |
+| -------------------- | ----------------------- | ---------------------------------------- |
+| Other bidders        | No                      | Only bid count shown                     |
+| Seller               | No                      | Only sees count, not amounts             |
+| Blockchain observers | No                      | Only SHA-256 hash on-chain               |
+| Supabase admin       | No                      | RSA-OAEP ciphertext — unreadable         |
+| CRE enclave          | Yes, at resolution only | Has private key; runs after auction ends |
 
 ---
 
@@ -86,39 +89,39 @@ VaultDON        SOLVER_AUTH_TOKEN
 
 ### Smart Contracts
 
-| Contract | Purpose |
-|----------|---------|
-| `MaskBidAsset.sol` | ERC-1155 RWA tokenization. Register → Verify → Mint → Transfer |
+| Contract             | Purpose                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `MaskBidAsset.sol`   | ERC-1155 RWA tokenization. Register → Verify → Mint → Transfer                               |
 | `MaskBidAuction.sol` | Sealed-bid auction engine. USDC escrow, CRE integration via `ReceiverTemplate`, 2-step claim |
 
 ### Key Pages
 
-| Route | Description |
-|-------|-------------|
-| `/` | Landing page — pitch, live auction previews, how-it-works |
-| `/dashboard` | Personal stats: active bids, assets, KYC status, deposits locked |
-| `/auctions` | Live auction browser — bid count visible, amounts hidden |
-| `/auctions/create` | Create a new sealed-bid auction for a minted RWA |
-| `/my-assets` | Asset portfolio with lifecycle status (Pending → Verified → Minted) |
-| `/my-assets/register` | Register a new RWA for tokenization |
-| `/my-bids` | Bid history — claim deposits for lost bids, claim wins |
-| `/verifier` | Admin queue to verify and mint RWA tokens |
+| Route                 | Description                                                         |
+| --------------------- | ------------------------------------------------------------------- |
+| `/`                   | Landing page — pitch, live auction previews, how-it-works           |
+| `/dashboard`          | Personal stats: active bids, assets, KYC status, deposits locked    |
+| `/auctions`           | Live auction browser — bid count visible, amounts hidden            |
+| `/auctions/create`    | Create a new sealed-bid auction for a minted RWA                    |
+| `/my-assets`          | Asset portfolio with lifecycle status (Pending → Verified → Minted) |
+| `/my-assets/register` | Register a new RWA for tokenization                                 |
+| `/my-bids`            | Bid history — claim deposits for lost bids, claim wins              |
+| `/verifier`           | Admin queue to verify and mint RWA tokens                           |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Frontend | Next.js 15 + React 19 + TypeScript | Web app |
-| Wallet | MetaMask SDK | Signing & transaction submission |
-| **Privacy** | **Chainlink CRE + ConfidentialHTTP** | **Encrypted bid decryption in secure enclave** |
-| **Secret mgmt** | **Chainlink VaultDON** | **`SOLVER_AUTH_TOKEN` injected at enclave runtime — never in code** |
-| **Identity** | **World ID (IDKit + on-chain KYC)** | **Proof-of-personhood, Sybil resistance** |
-| Contracts | Solidity ^0.8.20 + ERC-1155 (OpenZeppelin) | Asset tokenization + auction escrow |
-| Backend | Supabase (Postgres + Edge Functions) | Encrypted bid storage + CRE event sync |
-| **Testnet** | **Tenderly Virtual TestNet (Sepolia fork)** | **CRE workflow testing + time manipulation** |
-| Build | Turborepo + Bun | Monorepo orchestration |
+| Layer           | Technology                                  | Purpose                                                             |
+| --------------- | ------------------------------------------- | ------------------------------------------------------------------- |
+| Frontend        | Next.js 15 + React 19 + TypeScript          | Web app                                                             |
+| Wallet          | MetaMask SDK                                | Signing & transaction submission                                    |
+| **Privacy**     | **Chainlink CRE + ConfidentialHTTP**        | **Encrypted bid decryption in secure enclave**                      |
+| **Secret mgmt** | **Chainlink VaultDON**                      | **`SOLVER_AUTH_TOKEN` injected at enclave runtime — never in code** |
+| **Identity**    | **World ID (IDKit + on-chain KYC)**         | **Proof-of-personhood, Sybil resistance**                           |
+| Contracts       | Solidity ^0.8.20 + ERC-1155 (OpenZeppelin)  | Asset tokenization + auction escrow                                 |
+| Backend         | Supabase (Postgres + Edge Functions)        | Encrypted bid storage + CRE event sync                              |
+| **Testnet**     | **Tenderly Virtual TestNet (Sepolia fork)** | **CRE workflow testing + time manipulation**                        |
+| Build           | Turborepo + Bun                             | Monorepo orchestration                                              |
 
 ---
 
@@ -143,13 +146,14 @@ Created → Active → Ended → PendingClaim → Finalized
 
 ## Chainlink CRE Workflows
 
-MaskBid implements three CRE workflows, all tested on Tenderly Virtual TestNet:
+MaskBid implements four CRE workflows, all tested on Tenderly Virtual TestNet:
 
-| Workflow | Trigger | What it does |
-|----------|---------|-------------|
-| `auction-workflow` | HTTP / Cron | **Core privacy engine.** `ConfidentialHTTPClient` calls solver with VaultDON-injected auth token. Decrypts RSA bids, picks winner, submits report on-chain via EVMClient Forwarder. |
-| `auction-log-trigger-workflow` | Blockchain log | Listens for `AuctionCreated`, `BidPlaced`, `AuctionEnded`, `WinnerClaimRequired`, `WinClaimed` events. Syncs to Supabase. |
-| `asset-log-trigger-workflow` | Blockchain log | Listens for `AssetRegistered`, `AssetVerified`, `TokensMinted` events. Syncs to Supabase. |
+| Workflow                       | Trigger        | What it does                                                                                                                                                                        |
+| ------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auction-workflow`             | HTTP / Cron    | **Core privacy engine.** `ConfidentialHTTPClient` calls solver with VaultDON-injected auth token. Decrypts RSA bids, picks winner, submits report on-chain via EVMClient Forwarder. |
+| `auction-log-trigger-workflow` | Blockchain log | Listens for `AuctionCreated`, `BidPlaced`, `AuctionEnded`, `WinnerClaimRequired`, `WinClaimed` events. Syncs to Supabase.                                                           |
+| `asset-log-trigger-workflow`   | Blockchain log | Listens for `AssetRegistered`, `AssetVerified`, `TokensMinted` events. Syncs to Supabase.                                                                                           |
+| `kyc-verification-workflow`    | HTTP           | Receives World ID proof, verifies via CRE consensus, calls `kyc-handler` Edge Function to write `setKYCStatus()` on-chain.                                                          |
 
 ### Privacy implementation detail
 
@@ -197,7 +201,7 @@ forge script script/Deploy.s.sol --rpc-url "$TENDERLY_VIRTUAL_TESTNET_RPC_URL" -
 
 # 4. Deploy Supabase Edge Functions
 cd apps/supabase
-supabase functions deploy asset-handler auction-event-handler solver
+supabase functions deploy asset-handler auction-event-handler solver kyc-handler
 
 # 5. Start the web app
 cd ../..
@@ -249,31 +253,35 @@ cre workflow simulate auction-log-trigger-workflow --broadcast --target local-si
 # Run the solver (decrypts bids, picks winner)
 ./prepare-solver.sh
 cre workflow simulate auction-workflow --target local-simulation
+
+# Verify World ID KYC
+cre workflow simulate kyc-verification-workflow --target local-simulation
 ```
 
 **Event index reference:**
 
-| Transaction | Event Index | Event |
-|-------------|------------|-------|
-| Register Asset | `1` | `AssetRegistered` |
-| Verify & Mint | `0` | `AssetVerified` |
-| Verify & Mint | `2` | `TokensMinted` |
-| Create Auction | `2` | `AuctionCreated` |
-| Place Bid | `1` | `BidPlaced` |
-| End Auction | `0` | `AuctionEnded` |
-| Finalize | `0` | `WinnerClaimRequired` |
-| Claim Win | `4` | `WinClaimed` |
+| Transaction    | Event Index | Event                 |
+| -------------- | ----------- | --------------------- |
+| Register Asset | `1`         | `AssetRegistered`     |
+| Verify & Mint  | `0`         | `AssetVerified`       |
+| Verify & Mint  | `2`         | `TokensMinted`        |
+| Create Auction | `2`         | `AuctionCreated`      |
+| Place Bid      | `1`         | `BidPlaced`           |
+| End Auction    | `0`         | `AuctionEnded`        |
+| Finalize       | `0`         | `WinnerClaimRequired` |
+| Claim Win      | `4`         | `WinClaimed`          |
 
 ---
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [`docs/APP_FLOW.md`](docs/APP_FLOW.md) | Complete end-to-end walkthrough — all 6 phases with CRE commands |
-| [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | Pitch video script — scenes, voice scripts, track-specific demo additions |
-| [`docs/HOW_TO_RUN.md`](docs/HOW_TO_RUN.md) | Detailed local dev setup guide |
-| [`docs/SETUP_ZK_AUCTION.md`](docs/SETUP_ZK_AUCTION.md) | RSA keypair generation for confidential auctions |
+| Document                                               | Description                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| [`docs/APP_FLOW.md`](docs/APP_FLOW.md)                 | Complete end-to-end walkthrough — all 6 phases with CRE commands          |
+| [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md)           | Pitch video script — scenes, voice scripts, track-specific demo additions |
+| [`docs/HOW_TO_RUN.md`](docs/HOW_TO_RUN.md)             | Detailed local dev setup guide                                            |
+| [`docs/SETUP_ZK_AUCTION.md`](docs/SETUP_ZK_AUCTION.md) | RSA keypair generation for confidential auctions                          |
+| [`docs/SETUP_KYC_CRE.md`](docs/SETUP_KYC_CRE.md)     | World ID + CRE KYC workflow setup                                         |
 
 ---
 
@@ -293,14 +301,61 @@ MaskBid/
 │   ├── cre-workflow/         # Chainlink CRE workflow definitions
 │   │   ├── auction-workflow/             # Solver (bid decryption + winner)
 │   │   ├── auction-log-trigger-workflow/ # Auction event sync
-│   │   └── asset-log-trigger-workflow/   # Asset event sync
+│   │   ├── asset-log-trigger-workflow/   # Asset event sync
+│   │   └── kyc-verification-workflow/    # World ID KYC via CRE
 │   └── supabase/             # Edge Functions + DB migrations
 │       └── functions/
 │           ├── solver/            # Bid decryption, winner selection
 │           ├── asset-handler/     # Asset event handler
-│           └── auction-event-handler/ # Auction event handler
+│           ├── auction-event-handler/ # Auction event handler
+│           └── kyc-handler/       # World ID KYC on-chain writer
 └── docs/                     # Documentation
 ```
+
+---
+
+## Chainlink Integration — All Files
+
+> **Hackathon requirement:** Links to every file that uses Chainlink CRE.
+
+### CRE Workflows (4 workflows)
+
+| File                                                                                                                           | Purpose                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/cre-workflow/project.yaml`](apps/cre-workflow/project.yaml)                                                             | CRE project configuration (networks, capabilities, secrets)                                                                                 |
+| [`apps/cre-workflow/secrets.yaml`](apps/cre-workflow/secrets.yaml)                                                             | VaultDON secrets definition for `SOLVER_AUTH_TOKEN`                                                                                         |
+| [`apps/cre-workflow/auction-workflow/main.ts`](apps/cre-workflow/auction-workflow/main.ts)                                     | **Core privacy workflow** — `ConfidentialHTTPClient` calls solver, decrypts bids in enclave, submits winner report on-chain via `EVMClient` |
+| [`apps/cre-workflow/auction-workflow/workflow.yaml`](apps/cre-workflow/auction-workflow/workflow.yaml)                         | Trigger config: Cron (every 5 min) + HTTP manual trigger                                                                                    |
+| [`apps/cre-workflow/asset-log-trigger-workflow/main.ts`](apps/cre-workflow/asset-log-trigger-workflow/main.ts)                 | EVM log trigger — monitors `AssetRegistered`, `AssetVerified`, `TokensMinted` events, syncs to Supabase                                     |
+| [`apps/cre-workflow/asset-log-trigger-workflow/workflow.yaml`](apps/cre-workflow/asset-log-trigger-workflow/workflow.yaml)     | Log trigger config with contract address and event signatures                                                                               |
+| [`apps/cre-workflow/auction-log-trigger-workflow/main.ts`](apps/cre-workflow/auction-log-trigger-workflow/main.ts)             | EVM log trigger — monitors `AuctionCreated`, `BidPlaced`, `AuctionEnded`, `WinClaimed` events, syncs to Supabase                            |
+| [`apps/cre-workflow/auction-log-trigger-workflow/workflow.yaml`](apps/cre-workflow/auction-log-trigger-workflow/workflow.yaml) | Log trigger config for auction contract events                                                                                              |
+| [`apps/cre-workflow/kyc-verification-workflow/main.ts`](apps/cre-workflow/kyc-verification-workflow/main.ts)                   | World ID proof verification via CRE consensus — calls `kyc-handler` to write KYC status on-chain                                            |
+| [`apps/cre-workflow/kyc-verification-workflow/workflow.yaml`](apps/cre-workflow/kyc-verification-workflow/workflow.yaml)       | HTTP trigger config for World ID proof submission                                                                                           |
+
+### Smart Contracts (CRE ReceiverTemplate pattern)
+
+| File                                                                                                     | Purpose                                                                                                                |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [`apps/contract/src/MaskBidAuction.sol`](apps/contract/src/MaskBidAuction.sol)                           | Auction contract — inherits `ReceiverTemplate`, implements `_processReport()` to receive winner from CRE solver        |
+| [`apps/contract/src/MaskBidAsset.sol`](apps/contract/src/MaskBidAsset.sol)                               | RWA token contract — inherits `ReceiverTemplate`, implements `_processReport()` for CRE metadata updates               |
+| [`apps/contract/src/interfaces/ReceiverTemplate.sol`](apps/contract/src/interfaces/ReceiverTemplate.sol) | CRE report receiver abstract — validates Forwarder address, decodes workflow metadata, delegates to `_processReport()` |
+| [`apps/contract/src/interfaces/IReceiver.sol`](apps/contract/src/interfaces/IReceiver.sol)               | CRE `onReport()` interface definition                                                                                  |
+
+### Edge Functions (CRE callback endpoints)
+
+| File                                                                                                               | Purpose                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/supabase/functions/solver/index.ts`](apps/supabase/functions/solver/index.ts)                               | **Confidential solver** — validates `SOLVER_AUTH_TOKEN` from CRE enclave, RSA-decrypts bids, selects winner, returns ABI-encoded report |
+| [`apps/supabase/functions/kyc-handler/index.ts`](apps/supabase/functions/kyc-handler/index.ts)                     | KYC handler — called by CRE after World ID consensus, writes `setKYCStatus()` on-chain                                                  |
+| [`apps/supabase/functions/asset-handler/index.ts`](apps/supabase/functions/asset-handler/index.ts)                 | Asset event handler — called by CRE log trigger, syncs `AssetRegistered`/`AssetVerified`/`TokensMinted` to Supabase                     |
+| [`apps/supabase/functions/auction-event-handler/index.ts`](apps/supabase/functions/auction-event-handler/index.ts) | Auction event handler — called by CRE log trigger, syncs `AuctionCreated`/`BidPlaced`/`AuctionEnded`/`WinClaimed` to Supabase           |
+
+### Frontend (encryption for CRE)
+
+| File                                                       | Purpose                                                                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [`apps/web/src/lib/crypto.ts`](apps/web/src/lib/crypto.ts) | Client-side RSA-OAEP encryption — bids encrypted before storage, only decryptable by CRE enclave |
 
 ---
 
@@ -316,30 +371,31 @@ MIT — fork freely and build on top of it.
 
 ## Track Alignment Summary
 
-### Privacy ($32,000) — Primary track
+### Privacy — Primary track
 
-Chainlink's Privacy track describes: *"ConfidentialHTTP capability to build privacy-preserving workflows, where API credentials and sensitive application logic executes offchain."* The first example use case: *"Sealed-bid auctions with private payments."*
+Chainlink's Privacy track describes: _"ConfidentialHTTP capability to build privacy-preserving workflows, where API credentials and sensitive application logic executes offchain."_ The first example use case: _"Sealed-bid auctions with private payments."_
 
-MaskBid is a complete, production-ready implementation of exactly that:
+MaskBid is a complete implementation of exactly that:
+
 - `ConfidentialHTTPClient` for enclave-authenticated solver calls
 - `SOLVER_AUTH_TOKEN` stored in VaultDON, injected via `{{.solver_auth_token}}` — never in code
 - Bid amounts RSA-encrypted client-side, unreadable at every layer until CRE decrypts post-auction
 - ABI-encoded report submitted on-chain via Forwarder after consensus
 
-### DeFi & Tokenization ($40,000) — Secondary track
+### DeFi & Tokenization — Secondary track
 
 - ERC-1155 RWA tokenization with full lifecycle: Register → Verify → Mint → Auction → Transfer
 - USDC escrow and on-chain settlement
 - Chainlink CRE log-trigger workflows bridge blockchain events to off-chain database
 
-### Tenderly Virtual TestNets ($9,000) — Tertiary track
+### Tenderly Virtual TestNets — Tertiary track
 
-- All 3 CRE workflows developed and validated on Tenderly Virtual TestNet (Sepolia fork)
+- All 4 CRE workflows developed and validated on Tenderly Virtual TestNet (Sepolia fork)
 - `tenderly_setBalance` / `tenderly_setErc20Balance` for test wallet funding
 - `evm_increaseTime` / `evm_mine` for auction lifecycle testing without waiting
 - Full E2E test: `apps/contract/scripts/e2e_test.ts`
 
-### World ID + CRE ($10,000) — Tertiary track
+### World ID + CRE — Tertiary track
 
 - World ID IDKit integration for proof-of-personhood
 - KYC result written on-chain via `setKYCStatus()` — enforced at contract level in `MaskBidAuction`
