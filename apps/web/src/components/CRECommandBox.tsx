@@ -34,8 +34,26 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
     )
 }
 
+function truncateForDisplay(command: string): string {
+    const match = command.match(/^(.*--http-payload ')(.+)(')$/s)
+    if (!match) return command
+    try {
+        const json = JSON.parse(match[2]) as Record<string, unknown>
+        const short = Object.fromEntries(
+            Object.entries(json).map(([k, v]) => [
+                k,
+                typeof v === 'string' && v.length > 16 ? `${v.slice(0, 8)}...${v.slice(-4)}` : v,
+            ])
+        )
+        return `${match[1]}${JSON.stringify(short)}${match[3]}`
+    } catch {
+        return command
+    }
+}
+
 export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: Props) {
     const command = commandProp ?? 'cre workflow simulate asset-log-trigger-workflow --broadcast --target local-simulation'
+    const displayCommand = truncateForDisplay(command)
 
     return (
         <div className="frame-ornate-dark p-5 text-sm font-mono space-y-4">
@@ -71,8 +89,8 @@ export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: P
             <div>
                 <p className="text-dim text-xs font-serif tracking-wide mb-2">Run in terminal</p>
                 <div className="relative bg-background border border-border px-4 py-3">
-                    <p className="text-status-live pr-16 leading-relaxed text-xs">{command}</p>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <p className="text-status-live pr-16 leading-relaxed text-xs break-all">{displayCommand}</p>
+                    <div className="absolute right-3 top-3">
                         <CopyButton text={command} />
                     </div>
                 </div>

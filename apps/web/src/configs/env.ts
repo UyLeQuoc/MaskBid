@@ -23,6 +23,10 @@ export const env = createEnv({
 		// Supabase configuration
 		NEXT_PUBLIC_SUPABASE_URL: z.string().default("https://nxxxytncmfakqcbwlmbn.supabase.co"),
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().default("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54eHh5dG5jbWZha3FjYndsbWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjUyNzEsImV4cCI6MjA4Njc0MTI3MX0.mpXw3zDpXuhdgfUW1K6as6gl9Ou2dk7jOZohDJB7LOg"),
+		// Optional: CRE HTTP trigger URL for World ID verification via CRE consensus
+		// When set, KYC verification is routed through the CRE kyc-verification-workflow
+		// instead of the centralized /api/verify route.
+		NEXT_PUBLIC_CRE_KYC_URL: z.string().optional(),
 	},
 	runtimeEnv: {
 		ASSET_CONTRACT_ADDRESS: process.env.ASSET_CONTRACT_ADDRESS,
@@ -40,5 +44,6 @@ export const env = createEnv({
 		NEXT_PUBLIC_RSA_PUBLIC_KEY: process.env.NEXT_PUBLIC_RSA_PUBLIC_KEY,
 		NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+		NEXT_PUBLIC_CRE_KYC_URL: process.env.NEXT_PUBLIC_CRE_KYC_URL,
 	}
 });

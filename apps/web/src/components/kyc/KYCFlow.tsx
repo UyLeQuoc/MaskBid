@@ -6,11 +6,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import { env } from "@/configs/env";
+import { CRECommandBox } from "@/components/CRECommandBox";
 import { Spinner } from "./Spinner";
 import { StepIndicator } from "./StepIndicator";
 
 const APP_ID = (env.NEXT_PUBLIC_APP_ID || "app_staging_b2602675085f2b2c08b0ea7c819802fe") as `app_${string}`;
 const ACTION = env.NEXT_PUBLIC_ACTION;
+// When set, World ID proof is routed through Chainlink CRE for decentralized
+// verification in consensus, instead of the centralized /api/verify route.
+const CRE_KYC_URL = env.NEXT_PUBLIC_CRE_KYC_URL;
 const CONTRACT_ADDRESS = env.NEXT_PUBLIC_ASSET_CONTRACT_ADDRESS as `0x${string}`;
 const RPC_URL = env.NEXT_PUBLIC_RPC_URL;
 const EXPLORER_URL = env.NEXT_PUBLIC_EXPLORER_URL;
@@ -34,6 +38,8 @@ type FlowState =
 	| "verifying"
 	| "submitting"
 	| "bypassing"
+	| "cre_ready"   // proof received — show CRE command to run in terminal
+	| "cre_polling" // CRE command ran — polling on-chain for confirmation
 	| "done"
 	| "error";
 
@@ -62,6 +68,7 @@ export function KYCFlow() {
 	const [txHash, setTxHash] = useState<string | null>(null);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [worldIdFailed, setWorldIdFailed] = useState(false);
+	const [pendingProof, setPendingProof] = useState<ISuccessResult | null>(null);
 	const isDisconnecting = useRef(false);
 
 	const checkKYCStatus = useCallback(async (address: string) => {
@@ -110,10 +117,19 @@ export function KYCFlow() {
 
 	const handleVerify = async (proof: ISuccessResult) => {
 		if (!account) return;
-		setFlowState("submitting");
 		setWorldIdFailed(false);
+
+		// If no CRE URL configured → show CRE Command Box for local simulation
+		if (!CRE_KYC_URL) {
+			setPendingProof(proof);
+			setFlowState("cre_ready");
+			return;
+		}
+
+		// CRE URL configured → POST proof to CRE HTTP trigger, then poll on-chain
+		setFlowState("submitting");
 		try {
-			const res = await fetch("/api/verify", {
+			const res = await fetch(CRE_KYC_URL, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ ...proof, wallet_address: account }),
@@ -124,27 +140,9 @@ export function KYCFlow() {
 				const errDetail = data.error?.detail || data.error?.code || (typeof data.error === "string" ? data.error : null);
 				throw new Error(errDetail || "Verification failed");
 			}
-			setTxHash(data.txHash);
-
-			const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
-			const addr = account as `0x${string}`;
-			let confirmed = false;
-			for (let i = 0; i < 30; i++) {
-				await new Promise((r) => setTimeout(r, 2000));
-				const verified = await publicClient.readContract({
-					address: CONTRACT_ADDRESS,
-					abi: KYC_READ_ABI,
-					functionName: "isKYCVerified",
-					args: [addr],
-				});
-				if (verified) {
-					confirmed = true;
-					break;
-				}
-			}
-			if (!confirmed) throw new Error("Transaction submitted but on-chain confirmation timed out. Check the explorer.");
-
-			setFlowState("done");
+			if (data.txHash) setTxHash(data.txHash);
+			setFlowState("cre_polling");
+			await pollOnChain("Transaction submitted but on-chain confirmation timed out. Check the explorer.");
 		} catch (e: unknown) {
 			setErrorMsg(e instanceof Error ? e.message : "An unexpected error occurred");
 			setFlowState("error");
@@ -165,26 +163,8 @@ export function KYCFlow() {
 			if (!res.ok || !data.success) {
 				throw new Error(data.error || "Bypass failed");
 			}
-			setTxHash(data.txHash);
-
-			const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
-			const addr = account as `0x${string}`;
-			let confirmed = false;
-			for (let i = 0; i < 30; i++) {
-				await new Promise((r) => setTimeout(r, 2000));
-				const verified = await publicClient.readContract({
-					address: CONTRACT_ADDRESS,
-					abi: KYC_READ_ABI,
-					functionName: "isKYCVerified",
-					args: [addr],
-				});
-				if (verified) {
-					confirmed = true;
-					break;
-				}
-			}
-			if (!confirmed) throw new Error("Transaction submitted but on-chain confirmation timed out.");
-			setFlowState("done");
+			if (data.txHash) setTxHash(data.txHash);
+			await pollOnChain("Transaction submitted but on-chain confirmation timed out.");
 		} catch (e: unknown) {
 			setErrorMsg(e instanceof Error ? e.message : "Bypass failed");
 			setFlowState("error");
@@ -208,6 +188,38 @@ export function KYCFlow() {
 			setFlowState("idle");
 		}
 	};
+
+	// Poll on-chain until isKYCVerified returns true (max 60s)
+	const pollOnChain = async (errorMessage: string) => {
+		const publicClient = createPublicClient({ chain: sepolia, transport: http(RPC_URL) });
+		const addr = account as `0x${string}`;
+		for (let i = 0; i < 30; i++) {
+			await new Promise((r) => setTimeout(r, 2000));
+			try {
+				const verified = await publicClient.readContract({
+					address: CONTRACT_ADDRESS,
+					abi: KYC_READ_ABI,
+					functionName: "isKYCVerified",
+					args: [addr],
+				});
+				if (verified) { setFlowState("done"); return; }
+			} catch { /* keep polling */ }
+		}
+		setErrorMsg(errorMessage);
+		setFlowState("error");
+	};
+
+	// Called after user has run the CRE command in terminal — poll on-chain
+	const handleCreCommandDone = async () => {
+		if (!account) return;
+		setFlowState("cre_polling");
+		await pollOnChain("On-chain KYC not detected after 60s. Check the CRE terminal output.");
+	};
+
+	// Build the CRE simulation command from the pending proof
+	const creKycCommand = pendingProof && account
+		? `cd apps/cre-workflow && cre workflow simulate kyc-verification-workflow --target local-simulation --trigger-index 0 --non-interactive --http-payload '${JSON.stringify({ ...pendingProof, wallet_address: account })}'`
+		: "";
 
 	return (
 		<div className="min-h-screen flex items-center justify-center p-4">
@@ -315,7 +327,7 @@ export function KYCFlow() {
 										className="btn-ornate w-full text-gold font-serif tracking-wider py-3 cursor-pointer flex items-center justify-center gap-2"
 									>
 										{/* eslint-disable-next-line @next/next/no-img-element */}
-										<img src="/worldcoin.svg" alt="" className="w-5 h-5 invert brightness-[0.8] sepia saturate-[5] hue-rotate-[10deg]" />
+										<img src="/worldcoin.svg" alt="" className="w-5 h-5 invert brightness-[0.8] sepia saturate-[5] hue-rotate-10" />
 										Verify with World ID
 									</button>
 								)}
@@ -329,8 +341,40 @@ export function KYCFlow() {
 							<IconBox>
 								<Spinner className="w-10 h-10" />
 							</IconBox>
-							<h2 className="font-serif text-xl font-semibold text-foreground mb-2">Updating KYC On-Chain</h2>
-							<p className="text-muted text-sm">Verifying your World ID proof and waiting for on-chain confirmation...</p>
+							<h2 className="font-serif text-xl font-semibold text-foreground mb-2">Sending to Chainlink CRE</h2>
+							<p className="text-muted text-sm">Forwarding your World ID proof to Chainlink CRE for decentralized consensus verification...</p>
+						</div>
+					)}
+
+					{/* ── CRE Ready — show command to run in terminal ── */}
+					{flowState === "cre_ready" && (
+						<div>
+							<div className="text-center mb-5">
+								<IconBox variant="amber">
+									<svg aria-hidden="true" className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z" />
+									</svg>
+								</IconBox>
+								<h2 className="font-serif text-xl font-semibold text-foreground mb-1">Proof Ready</h2>
+								<p className="text-muted text-sm">
+									Run this command in your terminal to verify via Chainlink CRE consensus.
+								</p>
+							</div>
+							<CRECommandBox
+								command={creKycCommand}
+								onDone={handleCreCommandDone}
+							/>
+						</div>
+					)}
+
+					{/* ── CRE Polling — waiting for on-chain confirmation ── */}
+					{flowState === "cre_polling" && (
+						<div className="text-center">
+							<IconBox variant="amber">
+								<Spinner className="w-10 h-10" />
+							</IconBox>
+							<h2 className="font-serif text-xl font-semibold text-foreground mb-2">Confirming On-Chain</h2>
+							<p className="text-muted text-sm">Polling for KYC confirmation from Chainlink CRE...</p>
 						</div>
 					)}
 

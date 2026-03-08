@@ -1,0 +1,6 @@
+{
+  "kycHandlerUrl": "https://npcwptlazfyhwepiuctf.supabase.co/functions/v1/kyc-handler",
+  "worldIdAppId": "app_staging_b2602675085f2b2c08b0ea7c819802fe",
+  "worldIdAction": "verify-kyc",
+  "worldIdSignal": "my_signal"
+}

@@ -1,0 +1,24 @@
+# ==========================================================================
+# WORLD ID KYC VERIFICATION WORKFLOW
+# ==========================================================================
+# Verifies World ID proofs in Chainlink CRE consensus (off-chain verification)
+# then writes KYC status on-chain via kyc-handler Edge Function.
+#
+# Track: World ID + CRE — proof verification inside CRE extends World ID
+# to any chain reachable by CRE, not just natively supported chains.
+
+local-simulation:
+  user-workflow:
+    workflow-name: "kyc-verification-workflow"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "../secrets.yaml"
+
+staging:
+  user-workflow:
+    workflow-name: "kyc-verification-workflow"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "../secrets.yaml"
