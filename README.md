@@ -390,10 +390,30 @@ MaskBid is a complete implementation of exactly that:
 
 ### Tenderly Virtual TestNets — Tertiary track
 
-- All 4 CRE workflows developed and validated on Tenderly Virtual TestNet (Sepolia fork)
-- `tenderly_setBalance` / `tenderly_setErc20Balance` for test wallet funding
-- `evm_increaseTime` / `evm_mine` for auction lifecycle testing without waiting
-- Full E2E test: `apps/contract/scripts/e2e_test.ts`
+- **Contract simulation** — Simulate any function call (e.g. `placeBid`, `claimWin`) with full execution trace, state diff, and event log before committing a real transaction
+- **Wallet funding** — `tenderly_setBalance` and `tenderly_setErc20Balance` to fund Seller / Bidder / Verifier test wallets instantly
+- **Time control** — `evm_increaseTime` + `evm_mine` to fast-forward past auction end time without waiting
+- **Transaction history** — Full event log for every CRE workflow execution: `AssetRegistered`, `BidPlaced`, `AuctionFinalized`, `KYCStatusSet`, etc.
+- **E2E test** — [`apps/contract/scripts/e2e_test.ts`](apps/contract/scripts/e2e_test.ts) runs the full 6-phase auction lifecycle on the Virtual TestNet
+
+All smart contracts are deployed and all CRE workflows are tested on a **Tenderly Virtual TestNet** (Sepolia fork).
+
+| | |
+|---|---|
+| **Explorer** | https://dashboard.tenderly.co/explorer/vnet/c83354a8-0917-4b6b-83f2-559dc41d494b |
+| **Public RPC** | `https://virtual.sepolia.eu.rpc.tenderly.co/8c5c110e-0641-4255-ae82-73a983077b86` |
+| **Chain** | Sepolia fork |
+
+### Deployed Contracts
+
+| Contract | Address | Explorer |
+|---|---|---|
+| `MaskBidAsset` (ERC-1155 RWA) | `0x2732b983c27786d45cb435293e8e697a03e44e66` | [View](https://dashboard.tenderly.co/explorer/vnet/c83354a8-0917-4b6b-83f2-559dc41d494b/address/0x2732b983c27786d45cb435293e8e697a03e44e66) |
+| `MaskBidAuction` (Sealed-bid) | `0xb27f27ba229c8f4d9dbf368c3f842cd5ca22af39` | [View](https://dashboard.tenderly.co/explorer/vnet/c83354a8-0917-4b6b-83f2-559dc41d494b/address/0xb27f27ba229c8f4d9dbf368c3f842cd5ca22af39) |
+
+### How Tenderly is used
+
+---
 
 ### World ID + CRE — Tertiary track
 
