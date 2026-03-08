@@ -10,6 +10,7 @@ import {
   getNetwork,
   hexToBase64,
   type HTTPSendRequester,
+  type HTTPPayload,
 } from "@chainlink/cre-sdk";
 import { z } from "zod";
 import { bytesToHex, encodeAbiParameters, parseAbiParameters } from "viem";
@@ -338,47 +339,52 @@ const onCronTick = (runtime: Runtime<Config>): string => {
 };
 
 // =============================================================================
-// HTTP HANDLER - Immediate settlement for a specific auction
-// Can optionally submit on-chain immediately after resolution
+// HTTP HANDLER - Receives { auctionId } payload, resolves that auction
+// Used for simulation/demo. In production, the Cron trigger handles this.
 // =============================================================================
-const onHttpTrigger = async (runtime: Runtime<Config>): Promise<string> => {
-  const config = runtime.config;
-
-  // For HTTP trigger, use the configured default auction or require manual input
-  if (!config.auctionId) {
-    throw new Error("auctionId not configured for HTTP trigger");
+const onHttpTrigger = (runtime: Runtime<Config>, payload: HTTPPayload): string => {
+  // Parse auctionId from the HTTP request payload
+  if (!payload.input || payload.input.length === 0) {
+    throw new Error("HTTP payload is empty — expected { auctionId }");
   }
 
-  runtime.log(`🌐 HTTP trigger: resolving auction ${config.auctionId}...`);
+  const responseText = Buffer.from(payload.input).toString("utf-8");
+  const { auctionId } = JSON.parse(responseText);
 
-  // Create a mock ended auction object for the configured auction
-  const mockAuction: EndedAuction = {
-    auction_id: config.auctionId,
-    asset_id: "manual-trigger",
+  if (!auctionId) {
+    throw new Error("Missing auctionId in HTTP payload");
+  }
+
+  runtime.log(`🌐 HTTP trigger: resolving auction ${auctionId}...`);
+
+  // Create a minimal auction object — the solver fetches all details from Supabase
+  const auction: EndedAuction = {
+    auction_id: auctionId,
+    asset_id: "http-trigger",
     seller_address: "0x0",
     start_price: 0,
     reserve_price: 0,
     ends_at: new Date().toISOString(),
-    contract_auction_id: 0, // Will be populated from request or config
+    contract_auction_id: 0,
     bid_count: 0,
   };
 
-  const result = resolveAuction(runtime, mockAuction);
+  const result = resolveAuction(runtime, auction);
 
-  // Update mock auction with real contract ID from solver response
+  // Update with real contract ID from solver response
   if (result.contractAuctionId) {
-    mockAuction.contract_auction_id = result.contractAuctionId;
+    auction.contract_auction_id = result.contractAuctionId;
   }
 
   // Submit winner on-chain
   let txHash: string | undefined;
   if (result.winner && result.amount > 0) {
-    txHash = submitWinnerOnChain(runtime, mockAuction, result.winner, result.amount);
+    txHash = submitWinnerOnChain(runtime, auction, result.winner, result.amount);
   }
 
   return JSON.stringify({
     trigger: "http",
-    auctionId: config.auctionId,
+    auctionId,
     winner: result.winner,
     amount: result.amount,
     contractAuctionId: result.contractAuctionId,

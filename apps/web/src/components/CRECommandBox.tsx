@@ -13,6 +13,7 @@ type Props = {
     txHash?: string
     steps?: CREStep[]
     command?: string
+    payload?: string
     onDone?: () => void
 }
 
@@ -51,7 +52,7 @@ function truncateForDisplay(command: string): string {
     }
 }
 
-export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: Props) {
+export function CRECommandBox({ txHash, steps, command: commandProp, payload, onDone }: Props) {
     const command = commandProp ?? 'cre workflow simulate asset-log-trigger-workflow --broadcast --target local-simulation'
     const displayCommand = truncateForDisplay(command)
 
@@ -61,7 +62,7 @@ export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: P
             <div className="flex items-center gap-3">
                 <span className="w-1.5 h-1.5 bg-status-live animate-pulse inline-block" />
                 <span className="text-status-live text-xs font-serif tracking-wider">
-                    Transaction confirmed — sync with Chainlink CRE
+                    {payload ? 'Auction ended — run the CRE solver' : 'Transaction confirmed — sync with Chainlink CRE'}
                 </span>
             </div>
 
@@ -95,6 +96,19 @@ export function CRECommandBox({ txHash, steps, command: commandProp, onDone }: P
                     </div>
                 </div>
             </div>
+
+            {/* HTTP trigger payload — shown for auction-workflow */}
+            {payload && (
+                <div>
+                    <p className="text-dim text-xs font-serif tracking-wide mb-2">When prompted for HTTP trigger payload, paste:</p>
+                    <div className="relative bg-background border border-border px-4 py-3">
+                        <p className="text-gold/80 pr-16 leading-relaxed text-xs break-all font-mono">{payload}</p>
+                        <div className="absolute right-3 top-3">
+                            <CopyButton text={payload} />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Steps — only shown when provided */}
             {steps && steps.length > 0 && (

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useQueryState } from 'nuqs'
 import { useRouter } from 'next/navigation'
-import { BrowserProvider, Contract, Interface, type Eip1193Provider } from 'ethers'
+import { BrowserProvider, Contract, type Eip1193Provider } from 'ethers'
 import BidModal from '@/components/auction/BidModal'
 import ClaimWinModal from '@/components/auction/ClaimWinModal'
 import { MaskBidAuctionABI } from '@/abis/MaskBidAuction'
@@ -259,12 +259,11 @@ function AuctionCard({ auction, now, onView, onBid, onClaim, walletAddress }: {
 // ---------------------------------------------------------------------------
 // Test controls
 // ---------------------------------------------------------------------------
-type TestAction = { txHash: string; eventIndex: number; label: string }
 
 function TestControls({ auction }: { auction: Auction }) {
-    const [pending, setPending] = useState<'start' | 'end' | 'endAuction' | 'finalize' | null>(null)
+    const [pending, setPending] = useState<'endAuction' | 'finalize' | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [lastAction, setLastAction] = useState<TestAction | null>(null)
+    const [showSolverCommand, setShowSolverCommand] = useState(false)
 
     if (!auction.contract_auction_id) return null
 
@@ -275,65 +274,50 @@ function TestControls({ auction }: { auction: Auction }) {
         if (!eth) throw new Error('MetaMask not found')
         const provider = new BrowserProvider(eth)
         const signer = await provider.getSigner()
-        return {
-            contract: new Contract(contractAddress, MaskBidAuctionABI, signer),
-            iface: new Interface(MaskBidAuctionABI),
-        }
+        return new Contract(contractAddress, MaskBidAuctionABI, signer)
     }
 
-    const findEvent = (receipt: any, iface: Interface, name: string) => {
-        for (let i = 0; i < receipt.logs.length; i++) {
-            try {
-                const parsed = iface.parseLog({ topics: [...receipt.logs[i].topics], data: receipt.logs[i].data })
-                if (parsed?.name === name) return i
-            } catch { /* skip */ }
-        }
-        return 0
-    }
-
-    const runAction = async (kind: typeof pending, fn: () => Promise<void>) => {
-        setPending(kind)
+    // Sets end time to 30s from now, then shows solver command
+    const callEndAuction = async () => {
+        setPending('endAuction')
         setError(null)
-        setLastAction(null)
-        try { await fn() }
-        catch (e) { setError((e as Error).message) }
-        finally { setPending(null) }
+        setShowSolverCommand(false)
+        try {
+            const contract = await getContractAndSigner()
+            const tx = await contract.setAuctionEndSoon(BigInt(auction.contract_auction_id ?? 0))
+            await tx.wait()
+            setShowSolverCommand(true)
+        } catch (e) {
+            setError((e as Error).message)
+        } finally {
+            setPending(null)
+        }
     }
 
-    const callSetTime = (fnName: 'setAuctionStartSoon' | 'setAuctionEndSoon', kind: 'start' | 'end') =>
-        runAction(kind, async () => {
-            const { contract, iface } = await getContractAndSigner()
-            const tx = await contract[fnName](BigInt(auction.contract_auction_id ?? 0))
-            const receipt = await tx.wait()
-            const event = kind === 'start' ? 'AuctionStartTimeUpdated' : 'AuctionEndTimeUpdated'
-            setLastAction({ txHash: receipt.hash, eventIndex: findEvent(receipt, iface, event), label: event })
-        })
-
-    const callEndAuction = () =>
-        runAction('endAuction', async () => {
-            const { contract, iface } = await getContractAndSigner()
-            const tx = await contract.endAuction(BigInt(auction.contract_auction_id ?? 0))
-            const receipt = await tx.wait()
-            setLastAction({ txHash: receipt.hash, eventIndex: findEvent(receipt, iface, 'AuctionEnded'), label: 'AuctionEnded' })
-        })
-
-    const callFinalize = () =>
-        runAction('finalize', async () => {
+    // Calls finalizeAuction directly (contract accepts Active state, no endAuction needed)
+    const callFinalize = async () => {
+        setPending('finalize')
+        setError(null)
+        try {
             if (!auction.winner_address || !auction.winning_amount) {
-                throw new Error('No winner in Supabase. Run the solver first (prepare-solver.sh + auction-workflow).')
+                throw new Error('No winner yet. Run the CRE solver first (auction-workflow).')
             }
-            const { contract, iface } = await getContractAndSigner()
+            const contract = await getContractAndSigner()
             const winningBidUnits = BigInt(Math.round(auction.winning_amount * 1e6))
-            const tx = await contract.finalizeAuction(
+            await (await contract.finalizeAuction(
                 BigInt(auction.contract_auction_id ?? 0),
                 auction.winner_address,
                 winningBidUnits,
-            )
-            const receipt = await tx.wait()
-            setLastAction({ txHash: receipt.hash, eventIndex: findEvent(receipt, iface, 'WinnerClaimRequired'), label: 'WinnerClaimRequired' })
-        })
+            )).wait()
+        } catch (e) {
+            setError((e as Error).message)
+        } finally {
+            setPending(null)
+        }
+    }
 
     const canFinalize = auction.status === 'resolved' && !!auction.winner_address
+    const solverPayload = JSON.stringify({ auctionId: auction.id })
 
     return (
         <div className="frame-ornate-dark p-5 space-y-4">
@@ -346,8 +330,7 @@ function TestControls({ auction }: { auction: Auction }) {
             </div>
 
             <p className="text-xs text-dim font-serif leading-relaxed">
-                <span className="text-gold/60">Set Start</span> / <span className="text-gold/60">Set End</span> adjust timing.{' '}
-                <span className="text-gold/60">End Auction</span> calls <code className="font-mono text-gold/50 text-[10px]">endAuction()</code>.{' '}
+                <span className="text-gold/60">End Auction</span> sets end time to 30s from now, then shows the CRE solver command.{' '}
                 <span className="text-gold/60">Finalize</span> calls <code className="font-mono text-gold/50 text-[10px]">finalizeAuction()</code> with solver winner (local simulation workaround).
             </p>
 
@@ -355,39 +338,13 @@ function TestControls({ auction }: { auction: Auction }) {
                 <button
                     type="button"
                     disabled={pending !== null}
-                    onClick={() => callSetTime('setAuctionStartSoon', 'start')}
-                    className="btn-ornate flex-1 min-w-[100px] text-sm font-serif tracking-wider text-gold py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    {pending === 'start' ? (
-                        <span className="flex items-center justify-center gap-2">
-                            <span className="animate-spin w-3.5 h-3.5 border-2 border-gold/30 border-t-gold rounded-full inline-block" />
-                            Setting…
-                        </span>
-                    ) : 'Set Start'}
-                </button>
-                <button
-                    type="button"
-                    disabled={pending !== null}
-                    onClick={() => callSetTime('setAuctionEndSoon', 'end')}
-                    className="btn-ornate-ghost flex-1 min-w-[100px] text-sm font-serif tracking-wider text-muted hover:text-foreground py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    {pending === 'end' ? (
-                        <span className="flex items-center justify-center gap-2">
-                            <span className="animate-spin w-3.5 h-3.5 border-2 border-border border-t-muted rounded-full inline-block" />
-                            Setting…
-                        </span>
-                    ) : 'Set End'}
-                </button>
-                <button
-                    type="button"
-                    disabled={pending !== null}
                     onClick={callEndAuction}
-                    className="btn-ornate-ghost flex-1 min-w-[100px] text-sm font-serif tracking-wider text-status-error/80 hover:text-status-error py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="btn-ornate-ghost flex-1 min-w-35 text-sm font-serif tracking-wider text-status-error/80 hover:text-status-error py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                     {pending === 'endAuction' ? (
                         <span className="flex items-center justify-center gap-2">
                             <span className="animate-spin w-3.5 h-3.5 border-2 border-status-error/30 border-t-status-error rounded-full inline-block" />
-                            Ending…
+                            Setting…
                         </span>
                     ) : 'End Auction'}
                 </button>
@@ -395,8 +352,8 @@ function TestControls({ auction }: { auction: Auction }) {
                     type="button"
                     disabled={pending !== null || !canFinalize}
                     onClick={callFinalize}
-                    className="btn-ornate flex-1 min-w-[100px] text-sm font-serif tracking-wider text-status-live py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={!canFinalize ? 'Run solver first — auction must be resolved with a winner' : ''}
+                    className="btn-ornate flex-1 min-w-35 text-sm font-serif tracking-wider text-status-live py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={!canFinalize ? 'Run CRE solver first — auction must be resolved with a winner' : ''}
                 >
                     {pending === 'finalize' ? (
                         <span className="flex items-center justify-center gap-2">
@@ -416,12 +373,11 @@ function TestControls({ auction }: { auction: Auction }) {
 
             {error && <p className="text-status-error text-xs break-all font-mono">{error}</p>}
 
-            {lastAction && (
+            {showSolverCommand && (
                 <CRECommandBox
-                    txHash={lastAction.txHash}
-                    command="cre workflow simulate auction-log-trigger-workflow --broadcast --target local-simulation"
-                    steps={[{ label: lastAction.label, eventIndex: lastAction.eventIndex }]}
-                    onDone={() => setLastAction(null)}
+                    command={`cd apps/cre-workflow && cre workflow simulate auction-workflow --target local-simulation`}
+                    payload={solverPayload}
+                    onDone={() => setShowSolverCommand(false)}
                 />
             )}
         </div>
